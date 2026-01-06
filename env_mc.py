@@ -93,9 +93,8 @@ class MinecraftEnv(gym.Env[MinecraftObservation, MinecraftAction]):
         self.episode = 0
         self.step_idx = 0
 
-        self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32 # TODO: adjust this to the actual data
-        )
+        # real obs space is defined in wrapper
+        self.observation_space = gym.spaces.Space()
 
         self.action_space = gym.spaces.Dict({
             "move": gym.spaces.MultiBinary(5), # forward, backward, left, right, jump

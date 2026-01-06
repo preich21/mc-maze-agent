@@ -19,22 +19,22 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from env_mc import MinecraftEnv
 from wrappers.simple_goal_reward import SimpleGoalRewardWrapper
 from wrappers.action_flatten import ActionFlattenWrapper
+from bench import benchmark_decision_speed
 
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
+# TOTAL_STEPS = 20_000
 TOTAL_STEPS = 20_000
+N_STEPS = 2048
+BATCH_SIZE = 64
 STEP_TICKS = 2
 MAX_STEPS = 500
-STEP_PENALTY = -0.001
-GOAL_REWARD = 1.0
-DEATH_PENALTY = -1.0
 LOGDIR = "runs/ppo_minecraft"
 LEARNING_RATE = 3e-4
-BATCH_SIZE = 64
 SEED = 42
 
 # Observation vector layout: [x, y, z, yaw, pitch, standing_one_hot(4), fov_distances[25]]
-FOV_RAYS = 25
+FOV_RAYS = 2500 # 50 x 50 grid
 STANDING_MAP: Dict[str, int] = {
     "AIR": 0,
     "BLOCK": 1,
@@ -99,9 +99,6 @@ def make_env() -> Callable[[], gym.Env]:
     def _init():
         env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS)
         env = SimpleGoalRewardWrapper(env)
-        env.step_penalty = STEP_PENALTY
-        env.goal_reward = GOAL_REWARD
-        env.death_penalty = DEATH_PENALTY
         env.max_steps = MAX_STEPS
         env = ObservationVectorizer(env)
         env = ActionFlattenWrapper(env)
@@ -126,6 +123,7 @@ def main() -> None:
         batch_size=BATCH_SIZE,
         tensorboard_log=LOGDIR,
         seed=SEED,
+        n_steps=N_STEPS
     )
 
     logger = configure(LOGDIR, ["stdout", "tensorboard"])
@@ -133,6 +131,11 @@ def main() -> None:
 
     model.learn(total_timesteps=TOTAL_STEPS, progress_bar=True)
     model.save(os.path.join(LOGDIR, "ppo_minecraft_goal"))
+
+    # # Quick latency probe: how long does the policy need vs how long does env stepping take?
+    # # Helps to tune STEP_TICKS based on real inference latency.
+    # benchmark_decision_speed(model, vec_env, steps=200, deterministic=True)
+
     vec_env.close()
 
 

@@ -18,13 +18,13 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction,
     def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.001
-        self.goal_reward = 1.0
-        self.death_penalty = -1.0
-        self.new_block_reward = 0.01
+        self.goal_reward = 5.0
+        self.death_penalty = -0.5
+        self.new_block_reward = 0.2
         self.max_steps = 500
 
         # Goal visibility shaping
-        self.goal_first_seen_bonus = 0.2
+        self.goal_first_seen_bonus = 0.5
         self.goal_distance_weight = 0.02
         self.goal_seen: bool = False
         self.last_goal_distance: Optional[float] = None
@@ -32,12 +32,12 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction,
         self._steps = 0
         self._visited_blocks: set[tuple[int, int, int]] = set()
 
-    def reset(self, **kwargs):  # noqa: ANN003
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
         self._steps = 0
         self._visited_blocks.clear()
         self.goal_seen = False
         self.last_goal_distance = None
-        obs, info = self.env.reset(**kwargs)
+        obs, info = self.env.reset(seed=seed, options=options)
         # Mark start position as visited (if we're standing on a solid block)
         self._mark_visited_if_solid(obs)
         return obs, info
@@ -45,15 +45,13 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction,
     def step(self, action: MinecraftAction):
         self._steps += 1
         obs, base_reward, terminated, truncated, info = self.env.step(action)
-        standing_on = obs.standingOn
-        died = bool(obs.died)
 
         # Check terminal conditions - no step penalty needed here
-        if died:
+        if obs.died:
             reward = self.death_penalty
             terminated = True
             return obs, reward, terminated, truncated, info
-        elif standing_on == BlockTypes.GOAL_BLOCK:
+        elif obs.standingOn == BlockTypes.GOAL_BLOCK:
             reward = self.goal_reward
             terminated = True
             return obs, reward, terminated, truncated, info
