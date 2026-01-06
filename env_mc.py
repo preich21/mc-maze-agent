@@ -1,12 +1,15 @@
+import logging
+from typing import Tuple
+
 import gymnasium as gym
 import numpy as np
-import logging
 
 from ws import MinecraftWsBridge
+from types import MinecraftAction, MinecraftObservation
 
 LOGGER = logging.getLogger(__name__)
 
-class MinecraftEnv(gym.Env):
+class MinecraftEnv(gym.Env[MinecraftObservation, MinecraftAction]):
     metadata = {"render_modes": []}
 
     def __init__(self, uri: str = 'ws://127.0.0.1:8081', step_ticks: int = 5):
@@ -27,20 +30,20 @@ class MinecraftEnv(gym.Env):
             "look": gym.spaces.Box(low=-10, high=10, shape=(2,), dtype=np.float32), # TODO: adjust to actual range
         })
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None) -> Tuple[MinecraftObservation, dict]:
         super().reset(seed=seed)
         self.episode += 1
         self.step_idx = 0
 
         result = self._ws.reset(episode=self.episode, seed=seed, options=options)
-        obs = self._parse_obs(result.observation)
+        obs = MinecraftObservation.from_message(result.observation)
         info = result.info
         return obs, info
 
-    def step(self, action):
+    def step(self, action: MinecraftAction) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
         self.step_idx += 1
-        move = action["move"].astype(int).tolist()
-        look = action["look"].astype(float).tolist()
+        move = action.move.astype(int).tolist()
+        look = action.look.astype(float).tolist()
 
         result = self._ws.step(
             episode=self.episode,
@@ -49,7 +52,7 @@ class MinecraftEnv(gym.Env):
             move=move,
             look=look,
         )
-        obs = self._parse_obs(result.observation)
+        obs = MinecraftObservation.from_message(result.observation)
         reward = 0.0
         terminated = result.raw.get("terminated", False)
         truncated = result.raw.get("truncated", False)
@@ -59,26 +62,3 @@ class MinecraftEnv(gym.Env):
     def close(self):
         self._ws.close()
         super().close()
-
-    def _parse_obs(self, observation):
-        if not isinstance(observation, dict):
-            return {}
-        obs = {
-            "episode": observation.get("episode", self.episode),
-            "step": observation.get("step", self.step_idx),
-            "tick_start": observation.get("tickStart"),
-            "tick_end": observation.get("tickEnd"),
-            "position": {
-                "x": observation.get("x"),
-                "y": observation.get("y"),
-                "z": observation.get("z"),
-            },
-            "rotation": {
-                "yaw": observation.get("yaw"),
-                "pitch": observation.get("pitch"),
-            },
-            "standing_on": observation.get("standingOn"),
-            "field_of_view": observation.get("fieldOfView", []),
-            "died": bool(observation.get("died", False)),
-        }
-        return obs

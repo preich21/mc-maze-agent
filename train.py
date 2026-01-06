@@ -24,7 +24,7 @@ from wrappers.action_flatten import ActionFlattenWrapper
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
 TOTAL_STEPS = 20_000
-STEP_TICKS = 5
+STEP_TICKS = 2
 MAX_STEPS = 500
 STEP_PENALTY = -0.001
 GOAL_REWARD = 1.0
@@ -49,7 +49,8 @@ class ObservationVectorizer(gym.ObservationWrapper):
 
     def __init__(self, env: gym.Env):
         super().__init__(env)
-        vec_len = 3 + 2 + len(STANDING_MAP) + FOV_RAYS
+        # [x,y,z,yaw,pitch] + standing_one_hot(4) + fov_dist(25) + fov_type_one_hot(25*4)
+        vec_len = 3 + 2 + len(STANDING_MAP) + FOV_RAYS + (FOV_RAYS * 4)
         low = np.full(vec_len, -np.inf, dtype=np.float32)
         high = np.full(vec_len, np.inf, dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
@@ -58,38 +59,41 @@ class ObservationVectorizer(gym.ObservationWrapper):
         if not isinstance(observation, dict):
             return np.zeros(self.observation_space.shape, dtype=np.float32)
 
-        # observation comes from env_mc._parse_obs()
-        pos = observation.get("position") or {}
-        rot = observation.get("rotation") or {}
-        x = float(pos.get("x", 0.0))
-        y = float(pos.get("y", 0.0))
-        z = float(pos.get("z", 0.0))
-        yaw = float(rot.get("yaw", 0.0))
-        pitch = float(rot.get("pitch", 0.0))
+        x = np.float32(observation.get("x", 0.0))
+        y = np.float32(observation.get("y", 0.0))
+        z = np.float32(observation.get("z", 0.0))
+        yaw = np.float32(observation.get("yaw", 0.0))
+        pitch = np.float32(observation.get("pitch", 0.0))
 
-        standing = observation.get("standing_on", "AIR")
+        standing = observation.get("standingOn", "AIR")
         standing_vec = np.zeros(len(STANDING_MAP), dtype=np.float32)
         standing_idx = STANDING_MAP.get(standing, 0)
         standing_vec[standing_idx] = 1.0
 
-        fov_list: List[dict] = observation.get("field_of_view", []) or []
-        distances = [float(ray.get("distance", -1.0)) for ray in fov_list[:FOV_RAYS]]
-        if len(distances) < FOV_RAYS:
-            distances.extend([-1.0] * (FOV_RAYS - len(distances)))
+        fov_dist = np.asarray(observation.get("fovDistances", []), dtype=np.float16)[:FOV_RAYS]
+        if fov_dist.shape[0] < FOV_RAYS:
+            fov_dist = np.pad(fov_dist, (0, FOV_RAYS - fov_dist.shape[0]), constant_values=-1.0)
+
+        fov_blocks = np.asarray(observation.get("fovBlocks", []), dtype=np.uint8)[:FOV_RAYS]
+        if fov_blocks.shape[0] < FOV_RAYS:
+            fov_blocks = np.pad(fov_blocks, (0, FOV_RAYS - fov_blocks.shape[0]), constant_values=0)
+        fov_blocks = np.clip(fov_blocks, 0, 3)
+        fov_blocks_oh = np.eye(4, dtype=np.float32)[fov_blocks].reshape(-1)
 
         vec = np.concatenate([
             np.array([x, y, z, yaw, pitch], dtype=np.float32),
             standing_vec,
-            np.array(distances, dtype=np.float32),
+            fov_dist.astype(np.float32),
+            fov_blocks_oh.astype(np.float32),
         ]).astype(np.float32)
         return vec
 
 
 def select_device() -> str:
-    if torch.backends.mps.is_available():
-        return "mps"
-    if torch.cuda.is_available():
-        return "cuda"
+    # if torch.backends.mps.is_available():
+    #     return "mps"
+    # if torch.cuda.is_available():
+    #     return "cuda"
     return "cpu"
 
 

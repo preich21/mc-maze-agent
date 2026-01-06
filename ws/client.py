@@ -78,7 +78,7 @@ class WebSocketClient:
             result = ObservationResult.from_message(frame)
             if result.source == expected:
                 return result
-            LOGGER.debug("Skipping unexpected frame type %s (expected %s)", result.source, expected)
+            LOGGER.warning("Unexpected frame type %s (expected %s)", result.source, expected)
 
     async def _send_json(self, data: Dict[str, Any]) -> None:
         if not self._conn or self._conn.state is not State.OPEN:

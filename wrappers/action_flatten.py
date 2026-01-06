@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import gymnasium as gym
 import numpy as np
+from types import MinecraftAction
 
 
 class ActionFlattenWrapper(gym.ActionWrapper):
@@ -19,5 +20,4 @@ class ActionFlattenWrapper(gym.ActionWrapper):
         # Expect action as vector len 7
         move = np.array(action[:5] >= 0.5, dtype=np.int8)
         look = np.array(action[5:], dtype=np.float32)
-        return {"move": move, "look": look}
-
+        return MinecraftAction(move=move, look=look)

@@ -10,13 +10,16 @@ from __future__ import annotations
 import math
 import gymnasium as gym
 
+from env_mc import MinecraftEnv
+from types import MinecraftObservation, MinecraftAction
+
 GOAL_BLOCK = "GOAL_BLOCK"
 START_BLOCK = "START_BLOCK"
 SOLID_BLOCKS = {"BLOCK", START_BLOCK, GOAL_BLOCK}
 
 
-class SimpleGoalRewardWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env):
+class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction, MinecraftObservation, MinecraftAction]):
+    def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.001
         self.goal_reward = 1.0
@@ -34,48 +37,42 @@ class SimpleGoalRewardWrapper(gym.Wrapper):
         self._mark_visited_if_solid(obs)
         return obs, info
 
-    def step(self, action):
+    def step(self, action: MinecraftAction):
         self._steps += 1
         obs, base_reward, terminated, truncated, info = self.env.step(action)
-
-        standing_on = None
-        died = False
-        if isinstance(obs, dict):
-            standing_on = obs.get("standing_on")
-            died = bool(obs.get("died", False))
-
-        reward = self.step_penalty
-
-        # Exploration bonus: reward stepping onto new solid blocks.
-        # Only apply it while the episode is still "alive".
-        if not died and not terminated and self._mark_visited_if_solid(obs):
-            reward += self.new_block_reward
+        standing_on = obs.standingOn
+        died = bool(obs.died)
 
         if died:
             reward = self.death_penalty
             terminated = True
+            return obs, reward, terminated, truncated, info
         elif standing_on == GOAL_BLOCK:
             reward = self.goal_reward
             terminated = True
+            return obs, reward, terminated, truncated, info
 
+        reward = self.step_penalty
         if self._steps >= self.max_steps:
             truncated = True
+            return obs, reward, terminated, truncated, info
+
+
+        # Exploration bonus: reward stepping onto new solid blocks.
+        if self._mark_visited_if_solid(obs):
+            reward += self.new_block_reward
 
         return obs, reward, terminated, truncated, info
 
-    def _mark_visited_if_solid(self, obs) -> bool:  # noqa: ANN001
+    def _mark_visited_if_solid(self, obs: MinecraftObservation) -> bool:
         """Return True if a new solid block position was visited."""
-        if not isinstance(obs, dict):
-            return False
-
-        standing_on = obs.get("standing_on")
+        standing_on = obs.standingOn
         if standing_on not in SOLID_BLOCKS:
             return False
 
-        pos = obs.get("position") or {}
-        x = pos.get("x")
-        y = pos.get("y")
-        z = pos.get("z")
+        x = obs.x
+        y = obs.y
+        z = obs.z
         if x is None or y is None or z is None:
             return False
 
