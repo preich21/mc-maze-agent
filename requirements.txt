@@ -1,3 +1,8 @@
 gymnasium==1.2.3
 numpy==2.4.0
 websockets==15.0.1
+stable-baselines3>=2.2.1
+torch>=2.2.0
+tensorboard>=2.15.0
+tqdm>=4.66.0
+rich>=13.7.0
