@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import unittest
-from typing import Any, Dict
 
 import numpy as np
 
-from env_mc import MinecraftEnv
+from env_mc import MinecraftEnv, MinecraftAction, MinecraftObservation
 
 
 class TestMinecraftWsIntegration(unittest.TestCase):
@@ -14,10 +13,10 @@ class TestMinecraftWsIntegration(unittest.TestCase):
         env = MinecraftEnv()
         step_result = None
         try:
-            action: Dict[str, Any] = {
-                "move": np.zeros(5, dtype=np.int8),
-                "look": np.zeros(2, dtype=np.float32),
-            }
+            action = MinecraftAction(
+                move=np.zeros(5, dtype=np.int8),
+                look=np.zeros(2, dtype=np.float32),
+            )
             try:
                 step_result = env.step(action)
             except (OSError, ConnectionRefusedError, TimeoutError, RuntimeError) as exc:
@@ -26,7 +25,7 @@ class TestMinecraftWsIntegration(unittest.TestCase):
             env.close()
 
         obs, reward, terminated, truncated, info = step_result
-        self.assertIsInstance(obs, dict)
+        self.assertIsInstance(obs, MinecraftObservation)
         self.assertIsInstance(info, dict)
         self.assertIsInstance(reward, (int, float))
         self.assertIsInstance(terminated, bool)
@@ -44,8 +43,9 @@ class TestMinecraftWsIntegration(unittest.TestCase):
             env.close()
 
         obs, info = step_result
-        self.assertIsInstance(obs, dict)
+        self.assertIsInstance(obs, MinecraftObservation)
         self.assertIsInstance(info, dict)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

@@ -12,7 +12,6 @@ from typing import Callable, Dict, List
 
 import gymnasium as gym
 import numpy as np
-import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
@@ -56,25 +55,24 @@ class ObservationVectorizer(gym.ObservationWrapper):
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
     def observation(self, observation):  # noqa: ANN001
-        if not isinstance(observation, dict):
-            return np.zeros(self.observation_space.shape, dtype=np.float32)
+        # observation is a MinecraftObservation dataclass
+        x = np.float32(observation.x)
+        y = np.float32(observation.y)
+        z = np.float32(observation.z)
+        yaw = np.float32(observation.yaw)
+        pitch = np.float32(observation.pitch)
 
-        x = np.float32(observation.get("x", 0.0))
-        y = np.float32(observation.get("y", 0.0))
-        z = np.float32(observation.get("z", 0.0))
-        yaw = np.float32(observation.get("yaw", 0.0))
-        pitch = np.float32(observation.get("pitch", 0.0))
-
-        standing = observation.get("standingOn", "AIR")
         standing_vec = np.zeros(len(STANDING_MAP), dtype=np.float32)
-        standing_idx = STANDING_MAP.get(standing, 0)
+        standing_idx = int(observation.standingOn)
+        if standing_idx < 0 or standing_idx >= len(STANDING_MAP):
+            standing_idx = 0
         standing_vec[standing_idx] = 1.0
 
-        fov_dist = np.asarray(observation.get("fovDistances", []), dtype=np.float16)[:FOV_RAYS]
+        fov_dist = np.asarray(observation.fovDistances, dtype=np.float16)[:FOV_RAYS]
         if fov_dist.shape[0] < FOV_RAYS:
             fov_dist = np.pad(fov_dist, (0, FOV_RAYS - fov_dist.shape[0]), constant_values=-1.0)
 
-        fov_blocks = np.asarray(observation.get("fovBlocks", []), dtype=np.uint8)[:FOV_RAYS]
+        fov_blocks = np.asarray([int(b) for b in observation.fovBlocks], dtype=np.uint8)[:FOV_RAYS]
         if fov_blocks.shape[0] < FOV_RAYS:
             fov_blocks = np.pad(fov_blocks, (0, FOV_RAYS - fov_blocks.shape[0]), constant_values=0)
         fov_blocks = np.clip(fov_blocks, 0, 3)

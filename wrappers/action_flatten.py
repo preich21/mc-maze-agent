@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import gymnasium as gym
 import numpy as np
-from types import MinecraftAction
+from env_mc import MinecraftAction
 
 
 class ActionFlattenWrapper(gym.ActionWrapper):
