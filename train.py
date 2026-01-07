@@ -7,8 +7,9 @@
 """
 from __future__ import annotations
 
+import argparse
 import os
-from typing import Callable
+from typing import Callable, Dict
 
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -18,6 +19,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from mc_env.env import MinecraftEnv
 from wrappers.observation_vectorizer import ObservationVectorizer
 from wrappers.simple_goal_reward import SimpleGoalRewardWrapper
+from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
@@ -38,7 +40,7 @@ def select_device() -> str:
     return "cpu"
 
 
-def make_env() -> Callable[[], gym.Env]:
+def make_simple_env() -> Callable[[], gym.Env]:
     def _init():
         env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS)
         env = SimpleGoalRewardWrapper(env)
@@ -47,6 +49,33 @@ def make_env() -> Callable[[], gym.Env]:
         return env
 
     return _init
+
+
+def make_maze_env() -> Callable[[], gym.Env]:
+    def _init():
+        env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS)
+        env = MazeExploringRewardWrapper(env)
+        env.max_steps = MAX_STEPS
+        env = ObservationVectorizer(env)
+        return env
+
+    return _init
+
+
+def make_env() -> Callable[[], gym.Env]:
+    parser = argparse.ArgumentParser(description="Minecraft Agent Training: Choose your environment.")
+    parser.add_argument(
+        "--env",
+        choices=["simple", "maze"]
+    )
+    env_type = parser.parse_args().env
+
+    if env_type == "simple":
+        return make_simple_env()
+    elif env_type == "maze":
+        return make_maze_env()
+    else:
+        raise ValueError("Environment type must be specified with --env")
 
 
 def main() -> None:
