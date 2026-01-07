@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class MinecraftAction:
-    move: NDArray[np.int_]
+    move: NDArray[np.int_] # forward, backward, left, right, jump
     look: NDArray[np.floating]
 
 class BlockTypes(enum.IntEnum):
