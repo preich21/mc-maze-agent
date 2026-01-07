@@ -3,10 +3,13 @@ import logging
 from typing import Tuple
 
 import gymnasium as gym
+import numpy as np
 
-from mc_env.action import MinecraftAction, MinecraftActionVector
+from mc_env.action import MinecraftAction
 from mc_env.observation import MinecraftObservation
-from ws import MinecraftWsBridge
+from mc_env.reset import ResetRequest
+from ws.bridge import MinecraftWsBridge
+from ws.messages import IncomingMessageType
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +23,9 @@ class BlockTypes(enum.IntEnum):
 
 SOLID_BLOCKS = {BlockTypes.BLOCK, BlockTypes.START_BLOCK, BlockTypes.GOAL_BLOCK}
 
-class MinecraftEnv(gym.Env[MinecraftObservation, MinecraftActionVector]):
+FOV_RAYS = 50 * 50
+
+class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
     metadata = {"render_modes": []}
 
     def __init__(self, uri: str = 'ws://127.0.0.1:8081',
@@ -39,31 +44,29 @@ class MinecraftEnv(gym.Env[MinecraftObservation, MinecraftActionVector]):
 
         # real obs space is defined in wrapper
         self.observation_space = gym.spaces.Space()
-        self.action_space = MinecraftActionVector.get_space(self)
+        self.action_space = MinecraftAction.get_space(self)
 
     def reset(self, seed=None, options=None) -> Tuple[MinecraftObservation, dict]:
         super().reset(seed=seed)
         self.episode += 1
         self.step_idx = 0
 
-        result = self._ws.reset(episode=self.episode, seed=seed, options=options)
-        obs = MinecraftObservation.from_message(result.observation)
-        info = result.info
+        request = ResetRequest(episode=self.episode, seed=seed, options=options)
+        obs = self._ws.send(request, IncomingMessageType.STATE_AFTER_RESET)
+        info = {}
         return obs, info
 
-    def step(self, action: MinecraftActionVector) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
+    def step(self, action: np.ndarray) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
         self.step_idx += 1
 
         parsed_action = MinecraftAction.from_vector(action, env=self)
 
-        # Send via WS using existing messages.ActionRequest shape
-        result = self._ws.step(parsed_action)
+        obs = self._ws.send(parsed_action, IncomingMessageType.STATE_AFTER_ACTION)
 
-        obs = MinecraftObservation.from_message(result.observation)
         reward = 0.0
-        terminated = result.raw.get("terminated", False)
-        truncated = result.raw.get("truncated", False)
-        info = result.info
+        terminated = False
+        truncated = False
+        info = {}
         return obs, reward, terminated, truncated, info
 
     def close(self):

@@ -11,12 +11,12 @@ import math
 from typing import Optional
 
 import gymnasium as gym
+import numpy as np
 
-from mc_env.action import MinecraftActionVector
 from mc_env.env import MinecraftEnv, BlockTypes, SOLID_BLOCKS
 from mc_env.observation import MinecraftObservation
 
-class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftActionVector, MinecraftObservation, MinecraftActionVector]):
+class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, MinecraftObservation, np.ndarray]):
     def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.001
@@ -44,7 +44,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftActionV
         self._mark_visited_if_solid(obs)
         return obs, info
 
-    def step(self, action: MinecraftActionVector):
+    def step(self, action: np.ndarray):
         self._steps += 1
         obs, base_reward, terminated, truncated, info = self.env.step(action)
 

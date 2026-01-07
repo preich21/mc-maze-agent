@@ -16,20 +16,18 @@ from __future__ import annotations
 
 import time
 
-import numpy as np
 from stable_baselines3 import PPO
 
-from env_mc import MinecraftEnv
-from wrappers.action_flatten import ActionFlattenWrapper
+from mc_env.env import MinecraftEnv
+from wrappers.observation_vectorizer import ObservationVectorizer
 from wrappers.simple_goal_reward import SimpleGoalRewardWrapper
-from train import ObservationVectorizer, FOV_RAYS
 
 # Keep runtime config local to play.py to avoid accidental mismatch.
 URI = "ws://127.0.0.1:8081"
 STEP_TICKS = 2
 MAX_STEPS = 500
 
-MODEL_PATH = "models/2_simple_world_1_first_working_model/model.zip"
+MODEL_PATH = "runs/ppo_minecraft/ppo_minecraft_goal.zip"
 N_EPISODES = 5
 DETERMINISTIC = True
 SLEEP_BETWEEN_STEPS_SEC = 0.0  # set >0 for slower visible playback
@@ -40,7 +38,6 @@ def make_env():
     env = SimpleGoalRewardWrapper(env)
     env.max_steps = MAX_STEPS
     env = ObservationVectorizer(env)
-    env = ActionFlattenWrapper(env)
     return env
 
 
@@ -67,10 +64,8 @@ def main() -> None:
                     time.sleep(SLEEP_BETWEEN_STEPS_SEC)
 
             print(f"Episode {ep}: steps={steps} total_reward={total_reward:.3f} terminated={terminated} truncated={truncated}")
-
     finally:
         env.close()
-
 
 if __name__ == "__main__":
     main()

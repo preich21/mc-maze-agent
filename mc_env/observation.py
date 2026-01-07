@@ -32,7 +32,8 @@ class MinecraftObservation:
 
         fov_dist = list(get_or_throw("fovDistances"))
         fov_blocks = list(get_or_throw("fovBlocks"))
-        if len(fov_dist) != 2500 or len(fov_blocks) != 2500:
+        from mc_env.env import FOV_RAYS
+        if len(fov_dist) != FOV_RAYS or len(fov_blocks) != FOV_RAYS:
             raise ValueError("fovDistances and fovBlocks must have length 2500")
 
         standing_raw = get_or_throw("standingOn")
