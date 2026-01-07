@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import os
-from typing import Callable, Dict, List
+from typing import Callable, Dict
 
 import gymnasium as gym
 import numpy as np
@@ -16,9 +16,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from env_mc import MinecraftEnv
+from mc_env.env import MinecraftEnv
 from wrappers.simple_goal_reward import SimpleGoalRewardWrapper
-from wrappers.action_flatten import ActionFlattenWrapper
 from bench import benchmark_decision_speed
 
 # --------- Config ---------
@@ -101,7 +100,6 @@ def make_env() -> Callable[[], gym.Env]:
         env = SimpleGoalRewardWrapper(env)
         env.max_steps = MAX_STEPS
         env = ObservationVectorizer(env)
-        env = ActionFlattenWrapper(env)
         return env
 
     return _init

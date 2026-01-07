@@ -6,8 +6,9 @@ import contextlib
 import threading
 from typing import Any, Dict, Optional
 
+from mc_env.action import MinecraftAction
 from .client import WebSocketClient
-from .messages import ActionRequest, ObservationResult, ResetRequest
+from .messages import ObservationResult, ResetRequest
 
 
 class MinecraftWsBridge:
@@ -33,15 +34,8 @@ class MinecraftWsBridge:
         request = ResetRequest(episode=episode, seed=seed, options=options)
         return self._run_coroutine(self._client.send_reset(request))
 
-    def step(self, *, episode: int, step: int, ticks: int, move: list[int], look: list[float]) -> ObservationResult:
-        request = ActionRequest(
-            episode=episode,
-            step=step,
-            apply_for_ticks=ticks,
-            move=move,
-            look=look,
-        )
-        return self._run_coroutine(self._client.send_action(request))
+    def step(self, action: MinecraftAction) -> ObservationResult:
+        return self._run_coroutine(self._client.send_action(action))
 
     def close(self) -> None:
         if self._closing:

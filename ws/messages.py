@@ -33,40 +33,6 @@ class ResetRequest:
             message["options"] = dict(self.options)
         return message
 
-
-@dataclass(slots=True)
-class ActionRequest:
-    episode: int
-    step: int
-    apply_for_ticks: int
-    move: Sequence[int]
-    look: Sequence[float]
-
-    def to_message(self) -> Dict[str, Any]:
-        if len(self.move) != 5:
-            raise ValueError("move action must contain 5 elements (fwd, back, left, right, jump)")
-        if len(self.look) != 2:
-            raise ValueError("look action must contain 2 elements (yaw, pitch)")
-
-        move_forward = float(int(self.move[0]) - int(self.move[1]))
-        move_sidewards = float(int(self.move[3]) - int(self.move[2]))
-        jump = bool(self.move[4])
-        yaw_delta = float(self.look[0])
-        pitch_delta = float(self.look[1])
-
-        return {
-            "type": OutgoingMessageType.ACTION_REQUEST.value,
-            "episode": self.episode,
-            "step": self.step,
-            "applyForTicks": self.apply_for_ticks,
-            "moveForward": move_forward,
-            "moveSidewards": move_sidewards,
-            "jump": jump,
-            "yawDelta": yaw_delta,
-            "pitchDelta": pitch_delta,
-        }
-
-
 @dataclass(slots=True)
 class ObservationResult:
     source: IncomingMessageType

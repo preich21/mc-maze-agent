@@ -11,8 +11,8 @@ from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State
 
+from mc_env.action import MinecraftAction
 from .messages import (
-    ActionRequest,
     IncomingMessageType,
     ObservationResult,
     ResetRequest,
@@ -59,9 +59,9 @@ class WebSocketClient:
         await self._send_json(request.to_message())
         return await self._wait_for_state(IncomingMessageType.STATE_AFTER_RESET)
 
-    async def send_action(self, request: ActionRequest) -> ObservationResult:
+    async def send_action(self, request: MinecraftAction) -> ObservationResult:
         await self.ensure_connected()
-        await self._send_json(request.to_message())
+        await self._send_json(request)
         return await self._wait_for_state(IncomingMessageType.STATE_AFTER_ACTION)
 
     async def _wait_for_state(self, expected: IncomingMessageType) -> ObservationResult:
@@ -80,7 +80,7 @@ class WebSocketClient:
                 return result
             LOGGER.warning("Unexpected frame type %s (expected %s)", result.source, expected)
 
-    async def _send_json(self, data: Dict[str, Any]) -> None:
+    async def _send_json(self, data: MinecraftAction | Dict) -> None:
         if not self._conn or self._conn.state is not State.OPEN:
             await self.ensure_connected()
         text = json.dumps(data)
