@@ -13,10 +13,13 @@ import math
 from typing import Optional
 
 import gymnasium as gym
+import numpy as np
 
-from env_mc import MinecraftEnv, MinecraftObservation, MinecraftAction, BlockTypes, SOLID_BLOCKS
+from mc_env.action import MinecraftAction
+from mc_env.env import MinecraftEnv, BlockTypes, SOLID_BLOCKS
+from mc_env.observation import MinecraftObservation
 
-class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction, MinecraftObservation, MinecraftAction]):
+class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, MinecraftObservation, np.ndarray]):
     def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.001
@@ -45,9 +48,11 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftActi
         self._mark_visited_if_solid(obs)
         return obs, info
 
-    def step(self, action: MinecraftAction):
+    def step(self, action: np.ndarray):
         self._steps += 1
         obs, base_reward, terminated, truncated, info = self.env.step(action)
+
+        parsed_action = MinecraftAction.from_vector(action, env=self.env)
 
         # Check terminal conditions - no step penalty needed here
         if obs.standingOn == BlockTypes.GOAL_BLOCK:
@@ -83,7 +88,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftActi
         if self._stupid_camera_positioning(obs):
             reward += self.stupid_camera_positioning_penalty
 
-        if self._wall_collision(obs, action):
+        if MazeExploringRewardWrapper._wall_collision(obs, parsed_action):
             reward += self.wall_collision_penalty
 
         return obs, reward, terminated, truncated, info
@@ -132,13 +137,14 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftActi
 
         return False
 
-    def _wall_collision(self, obs: MinecraftObservation, action: MinecraftAction) -> bool:
+    @staticmethod
+    def _wall_collision(obs: MinecraftObservation, action: MinecraftAction) -> bool:
         """
         Return True if the agent attempted to move into a wall.
         Just checks for front collisions for now.
         """
-        forward_movement = action.move[0]
-        if forward_movement == 0:
+        # Only treat "forward into wall" as collision (not walking backwards)
+        if action.moveForward <= 0.0:
             return False
 
         front_distance = obs.fovDistances[1275]

@@ -19,11 +19,10 @@ import time
 
 from stable_baselines3 import PPO
 
-from env_mc import MinecraftEnv
-from wrappers.action_flatten import ActionFlattenWrapper
-from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
-from train import ObservationVectorizer
+from mc_env.env import MinecraftEnv
+from wrappers.observation_vectorizer import ObservationVectorizer
 from wrappers.simple_goal_reward import SimpleGoalRewardWrapper
+from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # Keep runtime config local to play.py to avoid accidental mismatch.
 URI = "ws://127.0.0.1:8081"
@@ -51,7 +50,6 @@ def make_simple_env():
     env = SimpleGoalRewardWrapper(env)
     env.max_steps = MAX_STEPS
     env = ObservationVectorizer(env)
-    env = ActionFlattenWrapper(env)
     return env
 
 
@@ -107,10 +105,8 @@ def main() -> None:
                     time.sleep(SLEEP_BETWEEN_STEPS_SEC)
 
             print(f"Episode {ep}: steps={steps} total_reward={total_reward:.3f} terminated={terminated} truncated={truncated}")
-
     finally:
         env.close()
-
 
 if __name__ == "__main__":
     main()

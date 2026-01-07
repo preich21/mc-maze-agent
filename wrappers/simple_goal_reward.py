@@ -11,10 +11,12 @@ import math
 from typing import Optional
 
 import gymnasium as gym
+import numpy as np
 
-from env_mc import MinecraftEnv, MinecraftObservation, MinecraftAction, BlockTypes, SOLID_BLOCKS
+from mc_env.env import MinecraftEnv, BlockTypes, SOLID_BLOCKS
+from mc_env.observation import MinecraftObservation
 
-class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction, MinecraftObservation, MinecraftAction]):
+class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, MinecraftObservation, np.ndarray]):
     def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.001
@@ -42,7 +44,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction,
         self._mark_visited_if_solid(obs)
         return obs, info
 
-    def step(self, action: MinecraftAction):
+    def step(self, action: np.ndarray):
         self._steps += 1
         obs, base_reward, terminated, truncated, info = self.env.step(action)
 
@@ -85,8 +87,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction,
 
     def _mark_visited_if_solid(self, obs: MinecraftObservation) -> bool:
         """Return True if a new solid block position was visited."""
-        standing_on = obs.standingOn
-        if standing_on not in SOLID_BLOCKS:
+        if obs.standingOn not in SOLID_BLOCKS:
             return False
 
         x = obs.x
@@ -109,7 +110,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, MinecraftAction,
         """Return the minimum visible GOAL_BLOCK distance or None if not visible."""
         min_dist: Optional[float] = None
         for blk, dist in zip(obs.fovBlocks, obs.fovDistances):
-            if blk == BlockTypes.GOAL_BLOCK and dist is not None and float(dist) >= 0:
+            if int(blk) == int(BlockTypes.GOAL_BLOCK) and dist is not None and float(dist) >= 0:
                 d = float(dist)
                 if min_dist is None or d < min_dist:
                     min_dist = d

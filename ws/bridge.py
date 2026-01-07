@@ -4,10 +4,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import threading
-from typing import Any, Dict, Optional
 
 from .client import WebSocketClient
-from .messages import ActionRequest, ObservationResult, ResetRequest
+from .messages import IncomingMessageType, OutgoingMessage
 
 
 class MinecraftWsBridge:
@@ -29,20 +28,6 @@ class MinecraftWsBridge:
         self._started.set()
         self._loop.run_forever()
 
-    def reset(self, *, episode: int, seed: Optional[int], options: Optional[Dict[str, Any]]) -> ObservationResult:
-        request = ResetRequest(episode=episode, seed=seed, options=options)
-        return self._run_coroutine(self._client.send_reset(request))
-
-    def step(self, *, episode: int, step: int, ticks: int, move: list[int], look: list[float]) -> ObservationResult:
-        request = ActionRequest(
-            episode=episode,
-            step=step,
-            apply_for_ticks=ticks,
-            move=move,
-            look=look,
-        )
-        return self._run_coroutine(self._client.send_action(request))
-
     def close(self) -> None:
         if self._closing:
             return
@@ -57,8 +42,8 @@ class MinecraftWsBridge:
     def _shutdown(self) -> None:
         pass
 
-    def _run_coroutine(self, coro):  # noqa: ANN001
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+    def send(self, request: OutgoingMessage, response_message_type: IncomingMessageType):
+        future = asyncio.run_coroutine_threadsafe(self._client.send(request, response_message_type), self._loop)
         try:
             return future.result(timeout=self._timeout)
         except Exception:
