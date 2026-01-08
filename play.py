@@ -58,7 +58,6 @@ def make_maze_env():
     env = MazeExploringRewardWrapper(env)
     env.max_steps = MAX_STEPS
     env = ObservationVectorizer(env)
-    env = ActionFlattenWrapper(env)
     return env
 
 
