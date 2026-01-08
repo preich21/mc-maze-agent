@@ -59,6 +59,9 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
             reward = self.goal_reward
             terminated = True
             return obs, reward, terminated, truncated, info
+        elif self._steps >= self.max_steps:
+            truncated = True
+            return obs, 0.0, terminated, truncated, info
 
         # Default per-step reward
         reward = self.step_penalty
