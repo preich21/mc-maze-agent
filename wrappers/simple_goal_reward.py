@@ -20,7 +20,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
     def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.001
-        self.goal_reward = 5.0
+        self.goal_reward = 500.0
         self.death_penalty = -0.5
         self.new_block_reward = 0.2
         self.max_steps = 500
@@ -76,7 +76,9 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
                 delta = self.last_goal_distance - goal_dist
                 # Clamp to avoid huge jumps from measurement noise
                 delta = max(-1.0, min(1.0, delta))
-                reward += self.goal_distance_weight * delta
+                goal_distance_reward = self.goal_distance_weight * delta
+                # print("Goal distance reward:", goal_distance_reward)
+                reward += goal_distance_reward
             self.last_goal_distance = goal_dist
 
         # Exploration bonus: reward stepping onto new solid blocks.

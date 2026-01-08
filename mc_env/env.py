@@ -51,9 +51,13 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self.episode += 1
         self.step_idx = 0
 
-        request = ResetRequest(episode=self.episode, seed=seed, options=options)
+
+        start_point_nonce = int(self.np_random.integers(0, 2**32, dtype=np.uint32))
+
+        request = ResetRequest(episode=self.episode, start_point_nonce=start_point_nonce, seed=seed, options=options)
+
         obs = self._ws.send(request, IncomingMessageType.STATE_AFTER_RESET)
-        info = {}
+        info = {"start_point_nonce": start_point_nonce}
         return obs, info
 
     def step(self, action: np.ndarray) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
