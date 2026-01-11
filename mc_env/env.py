@@ -51,7 +51,21 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self.episode += 1
         self.step_idx = 0
 
-        request = ResetRequest(episode=self.episode, seed=seed, options=options)
+        maze_size = None
+        maze_generation = False
+
+        if options is not None and "mazeSize" in options and options["mazeSize"] is not None:
+            maze_generation = True
+            maze_size = options["mazeSize"]
+
+        request = ResetRequest(
+            episode=self.episode,
+            seed=seed,
+            options=options,
+            mazeGeneration=maze_generation,
+            mazeSize=maze_size
+        )
+
         obs = self._ws.send(request, IncomingMessageType.STATE_AFTER_RESET)
         info = {}
         return obs, info

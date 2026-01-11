@@ -10,6 +10,7 @@ Reward shaping:
 from __future__ import annotations
 
 import math
+from math import ceil
 from typing import Optional
 
 import gymnasium as gym
@@ -25,7 +26,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self.step_penalty = -0.001
         self.goal_reward = 10.0
         self.new_block_reward = 0.2
-        self.max_steps = 500
+        self.max_steps = 2000
         self.stupid_camera_positioning_penalty = -0.2
         self.wall_collision_penalty = -0.1
 
@@ -35,15 +36,23 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self.goal_seen: bool = False
         self.last_goal_distance: Optional[float] = None
 
+        self._episode = 0
         self._steps = 0
         self._visited_blocks: set[tuple[int, int, int]] = set()
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
+        self._episode += 1
         self._steps = 0
         self._visited_blocks.clear()
         self.goal_seen = False
         self.last_goal_distance = None
-        obs, info = self.env.reset(seed=seed, options=options)
+
+        new_options = options.copy() if options is not None else {}
+        new_options['mazeSize'] = ceil(self._episode / 25)
+
+        obs, info = self.env.reset(seed=seed, options=new_options)
+
+        print(f"Starting episode {self._episode} with mazeSize={new_options['mazeSize']}")
         # Mark start position as visited (if we're standing on a solid block)
         self._mark_visited_if_solid(obs)
         return obs, info
@@ -58,14 +67,15 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         if obs.standingOn == BlockTypes.GOAL_BLOCK:
             reward = self.goal_reward
             terminated = True
+            print("Reached GOAL_BLOCK! Terminating episode.")
             return obs, reward, terminated, truncated, info
+        if self._steps >= self.max_steps:
+            truncated = True
+            print("Max steps reached, truncating episode.")
+            return obs, 0.0, terminated, truncated, info
 
         # Default per-step reward
         reward = self.step_penalty
-
-        if self._steps >= self.max_steps:
-            truncated = True
-            return obs, reward, terminated, truncated, info
 
         # Goal visibility shaping
         goal_dist = MazeExploringRewardWrapper._get_goal_visible_distance(obs)
