@@ -17,7 +17,9 @@ from __future__ import annotations
 import argparse
 import time
 
+from pkg_resources import require
 from stable_baselines3 import PPO
+from torch.optim.optimizer import required
 
 from mc_env.env import MinecraftEnv
 from wrappers.observation_vectorizer import ObservationVectorizer
@@ -36,12 +38,19 @@ SLEEP_BETWEEN_STEPS_SEC = 0.0  # set >0 for slower visible playback
 
 ARG_PARSER = argparse.ArgumentParser(description="Minecraft Agent: Choose your environment and model.")
 ARG_PARSER.add_argument(
-    "--model",
-    choices=["1", "2"]
+    "--env",
+    choices=["simple", "maze"],
+    required=True,
 )
 ARG_PARSER.add_argument(
-    "--env",
-    choices=["simple", "maze"]
+    "--model",
+    choices=["1", "2"],
+    required=False,
+)
+ARG_PARSER.add_argument(
+    "--model-path",
+    type=str,
+    required=False,
 )
 
 
@@ -72,6 +81,10 @@ def make_env():
 
 
 def load_model():
+    model_path = ARG_PARSER.parse_args().model_path
+    if model_path is not None:
+        return PPO.load(model_path)
+
     model = ARG_PARSER.parse_args().model
     if model == "1":
         return PPO.load(MODEL_BASE_PATH + "1_shy_model/model.zip")
