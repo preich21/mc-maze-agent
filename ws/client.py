@@ -4,17 +4,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable
 
 import websockets
 from websockets.asyncio.client import ClientConnection
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State
 
-from mc_env.action import MinecraftAction
 from mc_env.observation import MinecraftObservation
-from mc_env.reset import ResetRequest
-from .messages import IncomingMessageType, OutgoingMessage
+from .messages import IncomingMessageType, OutgoingMessage, HelloMessage, IncomingMessage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,8 +22,9 @@ class WsProtocolError(RuntimeError):
 
 
 class WebSocketClient:
-    def __init__(self, uri: str, connect_timeout: float = 5.0):
+    def __init__(self, uri: str, on_hello: Callable[[HelloMessage], None], connect_timeout: float = 5.0):
         self._uri = uri
+        self.on_hello = on_hello
         self._connect_timeout = connect_timeout
         self._conn: Optional[ClientConnection] = None
         self._recv_lock = asyncio.Lock()
@@ -46,6 +45,7 @@ class WebSocketClient:
                 return
             LOGGER.debug("Connecting to %s", self._uri)
             self._conn = await asyncio.wait_for(websockets.connect(self._uri), timeout=self._connect_timeout)
+            await self._wait_for_state(IncomingMessageType.HELLO)
 
     async def close(self) -> None:
         if self._conn and self._conn.state is State.OPEN:
@@ -71,6 +71,9 @@ class WebSocketClient:
                         return result
                 case IncomingMessageType.HELLO.value:
                     LOGGER.debug("Received hello frame: %s", frame)
+                    self.on_hello(HelloMessage.from_message(frame))
+                    if frame_type == expected:
+                        return None
                     continue
                 case IncomingMessageType.ERROR.value:
                     raise WsProtocolError(frame.get("message", "Server reported an error"))

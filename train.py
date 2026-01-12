@@ -24,6 +24,7 @@ from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
 TOTAL_STEPS = 20_000
+CURRICULUM_STEPS = max(1, int(int(TOTAL_STEPS) * 0.5))
 N_STEPS = 2048
 BATCH_SIZE = 64
 STEP_TICKS = 2
@@ -42,7 +43,7 @@ def select_device() -> str:
 
 def make_simple_env() -> Callable[[], gym.Env]:
     def _init():
-        env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS)
+        env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS, curriculum_steps=CURRICULUM_STEPS)
         env = SimpleGoalRewardWrapper(env)
         env.max_steps = MAX_STEPS
         env = ObservationVectorizer(env)
