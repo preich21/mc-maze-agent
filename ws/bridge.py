@@ -13,7 +13,7 @@ from .messages import IncomingMessageType, OutgoingMessage, HelloMessage
 class MinecraftWsBridge:
     """Runs the async WebSocket client in a private event loop."""
 
-    def __init__(self, uri: str, on_hello: Callable[[HelloMessage], None],connect_timeout: float = 5.0):
+    def __init__(self, uri: str, on_hello: Callable[[HelloMessage], None], connect_timeout: float = 10.0):
         self._uri = uri
         self._timeout = connect_timeout
         self._loop = asyncio.new_event_loop()
@@ -52,11 +52,14 @@ class MinecraftWsBridge:
     def _shutdown(self) -> None:
         pass
 
-    def send(self, request: OutgoingMessage, response_message_type: IncomingMessageType):
+    def send(self, request: OutgoingMessage, response_message_type: IncomingMessageType, retries: int = 3):
         future = asyncio.run_coroutine_threadsafe(self._client.send(request, response_message_type), self._loop)
         try:
             return future.result(timeout=self._timeout)
         except Exception:
+            if retries > 0:
+                print(f"WebSocket call failed, {retries} retries left...")
+                return self.send(request, response_message_type, retries - 1)
             last_frame = self._client.last_frame
             if last_frame is not None:
                 raise RuntimeError(f"WebSocket call timed out; last frame: {last_frame}")
