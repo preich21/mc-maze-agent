@@ -22,7 +22,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         self.step_penalty = -0.001
         self.goal_reward = 500.0
         self.death_penalty = -0.5
-        self.new_block_reward = 0.2
+        self.new_block_reward = 0.1
         self.max_steps = 500
 
         # Goal visibility shaping

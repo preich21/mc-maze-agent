@@ -30,7 +30,7 @@ class ObservationVectorizer(gym.ObservationWrapper[np.ndarray, np.ndarray, Minec
             standing_idx = 0
         standing_vec[standing_idx] = 1.0
 
-        fov_dist = np.asarray(observation.fovDistances, dtype=np.float16)[:FOV_RAYS]
+        fov_dist = np.asarray(observation.fovDistances, dtype=np.float32)[:FOV_RAYS]
         if fov_dist.shape[0] < FOV_RAYS:
             fov_dist = np.pad(fov_dist, (0, FOV_RAYS - fov_dist.shape[0]), constant_values=-1.0)
 

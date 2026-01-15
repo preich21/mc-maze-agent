@@ -33,8 +33,8 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
 
     def __init__(self, uri: str = 'ws://127.0.0.1:8081',
                  step_ticks: int = 2,
-                 yaw_delta_max_deg: float = 90.0,
-                 pitch_delta_max_deg: float = 70.0,
+                 yaw_delta_max_deg: float = 180.0,
+                 pitch_delta_max_deg: float = 90.0,
                  curriculum_steps: int = None):
         super().__init__()
 
@@ -93,7 +93,24 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         else:
             start_point_id = int(self.np_random.choice(len(self.start_points)))
 
-        return self.start_points[start_point_id]
+        start_point = self.start_points[start_point_id]
+        start_point.yaw = self.np_random.choice(np.arange(-180.0, 181.0, 1.0))
+        # start_point.pitch = self.np_random.choice(np.arange(-90.0, 91.0, 1.0))
+
+        t = 1.0
+        if self.curriculum_steps is not None:
+            t = min(1.0, float(self.total_steps) / float(max(1, self.curriculum_steps)))
+
+        # Start easy: narrow pitch, then widen.
+        easy_lo, easy_hi = -15.0, 15.0
+        hard_lo, hard_hi = -90.0, 90.0
+
+        pitch_lo = (1.0 - t) * easy_lo + t * hard_lo
+        pitch_hi = (1.0 - t) * easy_hi + t * hard_hi
+
+        start_point.pitch = float(self.np_random.uniform(pitch_lo, pitch_hi))
+
+        return start_point
 
     def step(self, action: np.ndarray) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
         self.step_idx += 1
