@@ -23,15 +23,17 @@ from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
-TOTAL_STEPS = 100_000
+LOGDIR = "runs/ppo_minecraft"
+SEED = 42
+
+TOTAL_STEPS = 200_000
 CURRICULUM_STEPS = max(1, int(int(TOTAL_STEPS) * 0.5))
 N_STEPS = 2048
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 STEP_TICKS = 2
 MAX_STEPS = 500
-LOGDIR = "runs/ppo_minecraft"
 LEARNING_RATE = 3e-4
-SEED = 42
+N_EPOCHS = 10
 
 def select_device() -> str:
     # if torch.backends.mps.is_available():
@@ -87,7 +89,8 @@ def main() -> None:
     vec_env.seed(SEED)
 
     model = PPO(
-        policy="MlpPolicy",
+        policy="CnnPolicy",
+        policy_kwargs={ "normalize_images": False },
         env=vec_env,
         device=device,
         verbose=1,
@@ -95,7 +98,13 @@ def main() -> None:
         batch_size=BATCH_SIZE,
         tensorboard_log=LOGDIR,
         seed=SEED,
-        n_steps=N_STEPS
+        n_steps=N_STEPS,
+        n_epochs=N_EPOCHS,
+        gamma=0.99,  # ↑ long horizon for navigation
+        gae_lambda=0.95,  # ↑ for smoother gradients
+        clip_range=0.2,  # standard
+        ent_coef=0.01,  # ↑ exploration
+        vf_coef=0.5,  # value loss balance
     )
 
     logger = configure(LOGDIR, ["stdout", "tensorboard"])
