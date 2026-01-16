@@ -64,6 +64,11 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self.step_idx = 0
 
         start_point = self._choose_start_point()
+        t = 1.0
+        if self.curriculum_steps is not None:
+            t = min(1.0, float(self.total_steps) / float(max(1, self.curriculum_steps)))
+        self._randomize_pitch(start_point, t)
+        self._randomize_yaw(start_point, t)
         request = ResetRequest(episode=self.episode, start_point=start_point, seed=seed, options=options)
 
         obs = self._ws.send(request, IncomingMessageType.STATE_AFTER_RESET)
@@ -94,13 +99,11 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
             start_point_id = int(self.np_random.choice(len(self.start_points)))
 
         start_point = self.start_points[start_point_id]
-        start_point.yaw = self.np_random.choice(np.arange(-180.0, 181.0, 1.0))
-        # start_point.pitch = self.np_random.choice(np.arange(-90.0, 91.0, 1.0))
 
-        t = 1.0
-        if self.curriculum_steps is not None:
-            t = min(1.0, float(self.total_steps) / float(max(1, self.curriculum_steps)))
 
+        return start_point
+
+    def _randomize_pitch(self, start_point: StartPoint, t: float) -> None:
         # Start easy: narrow pitch, then widen.
         easy_lo, easy_hi = -15.0, 15.0
         hard_lo, hard_hi = -90.0, 90.0
@@ -108,9 +111,19 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         pitch_lo = (1.0 - t) * easy_lo + t * hard_lo
         pitch_hi = (1.0 - t) * easy_hi + t * hard_hi
 
-        start_point.pitch = float(self.np_random.uniform(pitch_lo, pitch_hi))
+        pitch_delta = float(self.np_random.uniform(pitch_lo, pitch_hi))
+        start_point.pitch = ((start_point.pitch + pitch_delta) % 180.0) - 90.0
 
-        return start_point
+    def _randomize_yaw(self, start_point: StartPoint, t: float) -> None:
+        # Start easy: narrow yaw, then widen.
+        easy_lo, easy_hi = -15.0, 15.0
+        hard_lo, hard_hi = -180.0, 180.0
+
+        yaw_lo = (1.0 - t) * easy_lo + t * hard_lo
+        yaw_hi = (1.0 - t) * easy_hi + t * hard_hi
+
+        yaw_delta = float(self.np_random.uniform(yaw_lo, yaw_hi))
+        start_point.yaw = ((start_point.yaw + yaw_delta) % 360.0) - 180.0
 
     def step(self, action: np.ndarray) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
         self.step_idx += 1
