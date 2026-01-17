@@ -37,7 +37,7 @@ SLEEP_BETWEEN_STEPS_SEC = 0.0  # set >0 for slower visible playback
 ARG_PARSER = argparse.ArgumentParser(description="Minecraft Agent: Choose your environment and model.")
 ARG_PARSER.add_argument(
     "--model",
-    choices=["1", "2", "3", "4", "5"]
+    choices=["1", "2", "3", "4", "5", "6"]
 )
 ARG_PARSER.add_argument(
     "--env",
@@ -82,6 +82,8 @@ def load_model():
         return PPO.load(MODEL_BASE_PATH + "4_long_training/model.zip")
     elif model == "5":
         return PPO.load(MODEL_BASE_PATH + "5_more_pitch_and_yaw/model.zip")
+    elif model == "6":
+        return PPO.load(MODEL_BASE_PATH + "6_first_cnn/model.zip")
     else:
         raise ValueError("Model must be specified with --model")
 
