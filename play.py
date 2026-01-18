@@ -32,7 +32,7 @@ STEP_TICKS = 2
 MAX_STEPS = 500
 
 MODEL_BASE_PATH = "models/"
-N_EPISODES = 5
+N_EPISODES = 50
 DETERMINISTIC = True
 SLEEP_BETWEEN_STEPS_SEC = 0.0  # set >0 for slower visible playback
 
@@ -98,6 +98,7 @@ def main() -> None:
     env = make_env()
     try:
         model = load_model()
+        successes = 0
 
         for ep in range(1, N_EPISODES + 1):
             obs, info = env.reset()
@@ -116,7 +117,12 @@ def main() -> None:
                 if SLEEP_BETWEEN_STEPS_SEC > 0:
                     time.sleep(SLEEP_BETWEEN_STEPS_SEC)
 
-            print(f"Episode {ep}: steps={steps} total_reward={total_reward:.3f} terminated={terminated} truncated={truncated}")
+                if terminated:
+                    successes += 1
+
+            print(f"Episode {ep}: steps={steps} total_reward={total_reward:.3f} terminated={terminated} truncated={truncated} | successrate so far = {successes}/{ep} ({(successes / ep) * 100:.2f}%)")
+
+        print(f"Success rate: {successes}/{N_EPISODES} ({(successes / N_EPISODES) * 100:.2f}%)")
     finally:
         env.close()
 
