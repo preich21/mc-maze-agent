@@ -1,4 +1,5 @@
 import gymnasium as gym
+import numpy as np
 
 from mc_env.observation import MinecraftObservation
 from mc_env.env import BlockTypes
@@ -28,6 +29,12 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
         self._goal_seen_episodes = 0
         self._last_min_goal_dist = None
 
+        self._pitch_delta_avg = 0.0
+        self._pitch_delta_max = 0.0
+        self._yaw_delta_avg = 0.0
+        self._yaw_delta_max = 0.0
+
+
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         obs, info = self.env.reset(seed=seed, options=options)
 
@@ -35,14 +42,28 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
         self._episode_return = 0.0
         self._last_min_goal_dist = None
 
+        self._pitch_delta_avg = 0.0
+        self._pitch_delta_max = 0.0
+        self._yaw_delta_avg = 0.0
+        self._yaw_delta_max = 0.0
+
         return obs, info
 
-    def step(self, action):
+    def step(self, action: np.ndarray):
         obs, reward, terminated, truncated, info = self.env.step(action)
 
         self._global_steps += 1
         self._episode_steps += 1
         self._episode_return += float(reward)
+
+        yaw_delta = abs(float(action[3]))
+        pitch_delta = abs(float(action[4]))
+        self._pitch_delta_avg += pitch_delta
+        self._yaw_delta_avg += yaw_delta
+        if yaw_delta > self._yaw_delta_max:
+            self._yaw_delta_max = yaw_delta
+        if pitch_delta > self._pitch_delta_max:
+            self._pitch_delta_max = pitch_delta
 
         min_goal_dist = self._get_min_visible_goal_distance(obs)
         if min_goal_dist is not None:
@@ -76,6 +97,12 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
                 float(self._last_min_goal_dist) if self._last_min_goal_dist is not None else float("nan")
             )
             info["debug/died"] = int(died)
+            self._yaw_delta_avg = self._yaw_delta_avg / self._episode_steps
+            self._pitch_delta_avg = self._pitch_delta_avg / self._episode_steps
+            info["debug/yaw_delta_avg"] = self._yaw_delta_avg
+            info["debug/pitch_delta_avg"] = self._pitch_delta_avg
+            info["debug/yaw_delta_max"] = self._yaw_delta_max
+            info["debug/pitch_delta_max"] = self._pitch_delta_max
 
             if self._episodes % self.print_every_episodes == 0:
                 print(
@@ -88,6 +115,10 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
                     f"goal_seen_ep_rate={goal_seen_ep_rate:.2%} "
                     f"death_rate={death_rate:.2%} "
                     f"last_min_goal_dist={self._last_min_goal_dist}"
+                    f"yaw_delta_avg={self._yaw_delta_avg:.3f} "
+                    f"pitch_delta_avg={self._pitch_delta_avg:.3f} "
+                    f"yaw_delta_max={self._yaw_delta_max:.3f} "
+                    f"pitch_delta_max={self._pitch_delta_max:.3f} "
                 )
 
         return obs, reward, terminated, truncated, info

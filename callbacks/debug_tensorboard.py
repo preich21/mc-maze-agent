@@ -21,7 +21,7 @@ class DebugMetricsTensorboardCallback(BaseCallback):
 
             # Write any debug scalars present
             for k, v in info.items():
-                if not isinstance(k, str) or not k.startswith("debug/"):
+                if not isinstance(k, str) or not (k.startswith("debug/") or k.startswith("shaping/")):
                     continue
                 if v is None:
                     continue

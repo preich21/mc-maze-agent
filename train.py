@@ -96,7 +96,7 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
 
     elif time_preset == "long":
         # Realistic training budget. Adjust based on your setup speed.
-        total_steps = 200_000
+        total_steps = 150_000
         curriculum_steps = max(1, int(total_steps * 0.5))
         n_steps = 2_048
         batch_size = 128
