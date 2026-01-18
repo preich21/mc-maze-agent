@@ -23,7 +23,7 @@ from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
-TOTAL_STEPS = 200_000
+TOTAL_STEPS = 20_000
 N_STEPS = 2048
 BATCH_SIZE = 64
 STEP_TICKS = 2
@@ -85,28 +85,34 @@ def main() -> None:
     vec_env = DummyVecEnv([make_env()])
     vec_env.seed(SEED)
 
-    model = PPO(
-        policy="MlpPolicy",
-        env=vec_env,
-        device=device,
-        verbose=1,
-        learning_rate=LEARNING_RATE,
-        batch_size=BATCH_SIZE,
-        tensorboard_log=LOGDIR,
-        seed=SEED,
-        n_steps=N_STEPS
-    )
-
     logger = configure(LOGDIR, ["stdout", "tensorboard"])
-    model.set_logger(logger)
 
-    model.learn(total_timesteps=TOTAL_STEPS, progress_bar=True)
+    model_path = os.path.join(LOGDIR, "ppo_minecraft_goal.zip")
+
+    if os.path.exists(model_path):
+        print(f"Loading existing model from {model_path}")
+        model = PPO.load(model_path, env=vec_env, device=device)
+        model.set_logger(logger)
+
+        # Continue training WITHOUT resetting the timestep counter
+        model.learn(total_timesteps=TOTAL_STEPS, progress_bar=True, reset_num_timesteps=False)
+    else:
+        print("No existing model found, creating a new one.")
+        model = PPO(
+            policy="MlpPolicy",
+            env=vec_env,
+            device=device,
+            verbose=1,
+            learning_rate=LEARNING_RATE,
+            batch_size=BATCH_SIZE,
+            tensorboard_log=LOGDIR,
+            seed=SEED,
+            n_steps=N_STEPS,
+        )
+        model.set_logger(logger)
+        model.learn(total_timesteps=TOTAL_STEPS, progress_bar=True)
+
     model.save(os.path.join(LOGDIR, "ppo_minecraft_goal"))
-
-    # # Quick latency probe: how long does the policy need vs how long does env stepping take?
-    # # Helps to tune STEP_TICKS based on real inference latency.
-    # benchmark_decision_speed(model, vec_env, steps=200, deterministic=True)
-
     vec_env.close()
 
 

@@ -22,7 +22,7 @@ class MinecraftObservation:
     fovDistances: List[float]
     fovBlocks: List[int]
     maze: Optional[List[List[bool]]]
-    maze_distance: Optional[int] = None # filled by maze wrapper
+    maze_distance: Optional[float] = None # filled by maze wrapper
 
     @staticmethod
     def from_message(message: Mapping[str, Any]) -> "MinecraftObservation":
