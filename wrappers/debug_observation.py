@@ -56,10 +56,10 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
         self._episode_steps += 1
         self._episode_return += float(reward)
 
-        yaw_delta = abs(float(action[3]))
-        pitch_delta = abs(float(action[4]))
-        self._pitch_delta_avg += pitch_delta
+        yaw_delta = abs(float(action[3])) * 90.0
+        pitch_delta = abs(float(action[4])) * 45.0
         self._yaw_delta_avg += yaw_delta
+        self._pitch_delta_avg += pitch_delta
         if yaw_delta > self._yaw_delta_max:
             self._yaw_delta_max = yaw_delta
         if pitch_delta > self._pitch_delta_max:

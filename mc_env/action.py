@@ -40,8 +40,8 @@ class MinecraftAction(OutgoingMessage):
         move_backward, move_forward = MinecraftAction.discrete_move_value_from_continuous(vector[0])
         move_left, move_right = MinecraftAction.discrete_move_value_from_continuous(vector[1])
         jump = bool(vector[2] >= 0.5)
-        yaw_delta = float(np.clip(vector[3], -yaw_max, yaw_max))
-        pitch_delta = float(np.clip(vector[4], -pitch_max, pitch_max))
+        yaw_delta = float(vector[3]) * yaw_max
+        pitch_delta = float(vector[4]) * pitch_max
 
         return MinecraftAction(
             episode=env.episode,
@@ -61,9 +61,9 @@ class MinecraftAction(OutgoingMessage):
         value = np.clip(float(value), -1.0, 1.0)
         bool1 = False
         bool2 = False
-        if value < -0.33:
+        if value < -0.1:
             bool1 = True
-        elif value > 0.33:
+        elif value > 0.1:
             bool2 = True
         return bool1, bool2
 
@@ -78,8 +78,8 @@ class MinecraftAction(OutgoingMessage):
             - pitchDelta: degrees per tick (clamped to [-90,90] in MC)
             """
         # Allow full per-tick rotation up to configured maxima.
-        yaw_max_per_tick = float(env.yaw_delta_max_deg / env.step_ticks)
-        pitch_max_per_tick = float(env.pitch_delta_max_deg / env.step_ticks)
-        low = np.array([-1.0, -1.0, 0.0, -yaw_max_per_tick, -pitch_max_per_tick], dtype=np.float32)
-        high = np.array([1.0, 1.0, 1.0, yaw_max_per_tick, pitch_max_per_tick], dtype=np.float32)
+        # yaw_max_per_tick = float(env.yaw_delta_max_deg / env.step_ticks)
+        # pitch_max_per_tick = float(env.pitch_delta_max_deg / env.step_ticks)
+        low = np.array([-1.0, -1.0, 0.0, -1.0, -1.0], dtype=np.float32)
+        high = np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32)
         return gym.spaces.Box(low=low, high=high, dtype=np.float32)

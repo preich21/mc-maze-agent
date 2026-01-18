@@ -168,7 +168,11 @@ def main() -> None:
 
     model = PPO(
         policy="MultiInputPolicy",
-        policy_kwargs={"normalize_images": False},
+        policy_kwargs={
+            "normalize_images": False,
+            # Larger initial exploration in continuous action dims
+            "log_std_init": -0.5,  # try -0.5 or 0.0 (bigger == noisier)
+        },
         env=vec_env,
         device=device,
         verbose=1,
@@ -181,7 +185,7 @@ def main() -> None:
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
-        ent_coef=0.05,
+        ent_coef=0.10,
         vf_coef=0.5,
     )
 
