@@ -7,10 +7,11 @@ import numpy as np
 
 from mc_env.action import MinecraftAction
 from mc_env.observation import MinecraftObservation
+from mc_env.observations_buffer import ObservationsBuffer
 from mc_env.reset import ResetRequest
 from mc_env.start_points import StartPoint
 from ws.bridge import MinecraftWsBridge
-from ws.messages import IncomingMessageType, HelloMessage
+from ws.messages import HelloMessage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,18 +34,12 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
 
     start_points: list[StartPoint] | None = None
 
-    def __init__(self, uri: str = 'ws://127.0.0.1:8081',
-                 step_ticks: int = 2,
-                 yaw_delta_max_deg: float = 180.0,
-                 pitch_delta_max_deg: float = 90.0,
-                 curriculum_steps: int = None):
+    def __init__(self, uri: str = 'ws://127.0.0.1:8081', curriculum_steps: int = None):
         super().__init__()
 
-        self._ws = MinecraftWsBridge(uri, self.on_hello)
+        self.observations_buffer = ObservationsBuffer()
+        self._ws = MinecraftWsBridge(uri, self.on_hello, self.observations_buffer.add_observation)
 
-        self.step_ticks = step_ticks
-        self.yaw_delta_max_deg = yaw_delta_max_deg
-        self.pitch_delta_max_deg = pitch_delta_max_deg
         self.curriculum_steps = curriculum_steps
         if self.curriculum_steps is None:
             print("Curriculum steps not given, reset will use different start points with same probability")
@@ -73,8 +68,12 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self._randomize_yaw(start_point, t)
         request = ResetRequest(episode=self.episode, start_point=start_point, seed=seed, options=options)
 
-        obs = self._ws.send(request, IncomingMessageType.STATE_AFTER_RESET)
-        info = {"start_point": start_point}
+        self._ws.send(request)
+        obs, skipped_obs = self.observations_buffer.get_observation()
+        info = {
+            "start_point": start_point,
+            "debug/skipped_obs": skipped_obs
+        }
         return obs, info
 
     def _choose_start_point(self) -> StartPoint | None:
@@ -131,14 +130,17 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self.step_idx += 1
         self.total_steps += 1
 
-        parsed_action = MinecraftAction.from_vector(action, env=self)
+        parsed_action = MinecraftAction.from_vector(action)
 
-        obs = self._ws.send(parsed_action, IncomingMessageType.STATE_AFTER_ACTION)
+        self._ws.send(parsed_action)
+        obs, skipped_obs = self.observations_buffer.get_observation()
 
         reward = 0.0
         terminated = False
         truncated = False
-        info = {}
+        info = {
+            "debug/skipped_obs": skipped_obs
+        }
         return obs, reward, terminated, truncated, info
 
     def close(self):

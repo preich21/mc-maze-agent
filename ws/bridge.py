@@ -6,26 +6,27 @@ import contextlib
 import threading
 from typing import Callable
 
+from mc_env.observation import MinecraftObservation
 from .client import WebSocketClient
-from .messages import IncomingMessageType, OutgoingMessage, HelloMessage
+from .messages import OutgoingMessage, HelloMessage
 
 
 class MinecraftWsBridge:
     """Runs the async WebSocket client in a private event loop."""
 
-    def __init__(self, uri: str, on_hello: Callable[[HelloMessage], None], connect_timeout: float = 10.0):
+    def __init__(self, uri: str, on_hello: Callable[[HelloMessage], None], on_message: Callable[[MinecraftObservation], None], connect_timeout: float = 10.0):
         self._uri = uri
         self._timeout = connect_timeout
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
-        self._client = WebSocketClient(uri, on_hello, connect_timeout)
+        self._client = WebSocketClient(uri, on_hello, on_message, connect_timeout)
         self._started = threading.Event()
         self._closing = False
         self._thread.start()
         self._started.wait()
 
         # Eager connect: run ensure_connected() on the loop thread and wait.
-        future = asyncio.run_coroutine_threadsafe(self._client.ensure_connected(), self._loop)
+        future = asyncio.run_coroutine_threadsafe(self._client.connect(), self._loop)
         try:
             future.result(timeout=self._timeout)
         except Exception:
@@ -52,18 +53,8 @@ class MinecraftWsBridge:
     def _shutdown(self) -> None:
         pass
 
-    def send(self, request: OutgoingMessage, response_message_type: IncomingMessageType, retries: int = 3):
-        future = asyncio.run_coroutine_threadsafe(self._client.send(request, response_message_type), self._loop)
-        try:
-            return future.result(timeout=self._timeout)
-        except Exception:
-            if retries > 0:
-                print(f"WebSocket call failed, {retries} retries left...")
-                return self.send(request, response_message_type, retries - 1)
-            last_frame = self._client.last_frame
-            if last_frame is not None:
-                raise RuntimeError(f"WebSocket call timed out; last frame: {last_frame}")
-            raise
+    def send(self, request: OutgoingMessage):
+        asyncio.run_coroutine_threadsafe(self._client.send(request), self._loop)
 
     def __del__(self) -> None:  # pragma: no cover
         self.close()

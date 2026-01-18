@@ -26,7 +26,6 @@ from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # Keep runtime config local to play.py to avoid accidental mismatch.
 URI = "ws://127.0.0.1:8081"
-STEP_TICKS = 2
 MAX_STEPS = 500
 
 MODEL_BASE_PATH = "models/"
@@ -37,7 +36,7 @@ SLEEP_BETWEEN_STEPS_SEC = 0.0  # set >0 for slower visible playback
 ARG_PARSER = argparse.ArgumentParser(description="Minecraft Agent: Choose your environment and model.")
 ARG_PARSER.add_argument(
     "--model",
-    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"]
 )
 ARG_PARSER.add_argument(
     "--env",
@@ -45,7 +44,7 @@ ARG_PARSER.add_argument(
 )
 
 def make_simple_env():
-    env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS)
+    env = MinecraftEnv(uri=URI)
     env = SimpleGoalRewardWrapper(env)
     env.max_steps = MAX_STEPS
     env = ObservationVectorizer(env)
@@ -53,7 +52,7 @@ def make_simple_env():
 
 
 def make_maze_env():
-    env = MinecraftEnv(uri=URI, step_ticks=STEP_TICKS)
+    env = MinecraftEnv(uri=URI)
     env = MazeExploringRewardWrapper(env)
     env.max_steps = MAX_STEPS
     env = ObservationVectorizer(env)
@@ -100,6 +99,8 @@ def load_model():
         return PPO.load(MODEL_BASE_PATH + "13_20k_reduce_laziness/model.zip")
     elif model == "14":
         return PPO.load(MODEL_BASE_PATH + "14_normalize_yaw_pitch_action_space/model.zip")
+    elif model == "15":
+        return PPO.load(MODEL_BASE_PATH + "15_streaming/model.zip")
     else:
         raise ValueError("Model must be specified with --model")
 

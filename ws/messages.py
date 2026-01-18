@@ -14,8 +14,7 @@ class OutgoingMessageType(str, Enum):
 
 
 class IncomingMessageType(str, Enum):
-    STATE_AFTER_RESET = "STATE_AFTER_RESET"
-    STATE_AFTER_ACTION = "STATE_AFTER_ACTION"
+    OBSERVATION = "OBSERVATION"
     ERROR = "ERROR"
     HELLO = "HELLO"
     UNKNOWN = "UNKNOWN"

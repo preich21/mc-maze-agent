@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import List, Any, Dict
 
+from mc_env.action import MinecraftAction
 from ws.messages import IncomingMessage, get_or_throw
 
 @dataclass
 class MinecraftObservation(IncomingMessage):
-    episode: int
-    step: int
-    tickStart: int
-    tickEnd: int
+    tick: int
+    actionStartedTick: int | None
+    activeActionRequest: MinecraftAction | None
     x: float
     y: float
     z: float
@@ -33,11 +33,26 @@ class MinecraftObservation(IncomingMessage):
         standing_raw = get_or_throw(message, "standingOn")
         standing = int(standing_raw)
 
+        action_started_tick = message.get("actionStartedTick")
+        if action_started_tick is not None:
+            action_started_tick = int(action_started_tick)
+        active_action_request = message.get("activeActionRequest")
+        if active_action_request is not None:
+            active_action_request = MinecraftAction(
+                moveForward=bool(get_or_throw(active_action_request, "moveForward")),
+                moveBackward=bool(get_or_throw(active_action_request, "moveBackward")),
+                moveLeft=bool(get_or_throw(active_action_request, "moveLeft")),
+                moveRight=bool(get_or_throw(active_action_request, "moveRight")),
+                jump=bool(get_or_throw(active_action_request, "jump")),
+                yawDelta=float(get_or_throw(active_action_request, "yawDelta")),
+                pitchDelta=float(get_or_throw(active_action_request, "pitchDelta")),
+            )
+
+
         return MinecraftObservation(
-            episode=int(get_or_throw(message, "episode")),
-            step=int(get_or_throw(message, "step")),
-            tickStart=int(get_or_throw(message, "tickStart")),
-            tickEnd=int(get_or_throw(message, "tickEnd")),
+            tick=int(get_or_throw(message, "tick")),
+            actionStartedTick=action_started_tick,
+            activeActionRequest=active_action_request,
             x=float(get_or_throw(message, "x")),
             y=float(get_or_throw(message, "y")),
             z=float(get_or_throw(message, "z")),

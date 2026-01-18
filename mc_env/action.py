@@ -11,11 +11,13 @@ from ws.messages import OutgoingMessage
 if TYPE_CHECKING:
     from mc_env.env import MinecraftEnv
 
+FPS = 19
+
+YAW_DELTA_MAX_DEG: float = 250.0 / FPS
+PITCH_DELTA_MAX_DEG: float = 200.0 / FPS
+
 @dataclass
 class MinecraftAction(OutgoingMessage):
-    episode: int
-    step: int
-    applyForTicks: int  # number of ticks to apply this action for == env.step_ticks
     moveForward: bool
     moveBackward: bool
     moveLeft: bool
@@ -29,24 +31,53 @@ class MinecraftAction(OutgoingMessage):
         payload["type"] = "ACTION_REQUEST"
         return payload
 
+    def to_vector(self) -> np.ndarray:
+        """Reverse of from_vector(): MinecraftAction → 5D vector."""
+
+        # moveForward/Backward → continuous [-1,1]
+        if self.moveForward and not self.moveBackward:
+            move_fwd = 1.0
+        elif self.moveBackward and not self.moveForward:
+            move_fwd = -1.0
+        else:  # neither or both
+            move_fwd = 0.0
+
+        # moveLeft/Right → continuous [-1,1]
+        if self.moveRight and not self.moveLeft:
+            move_side = 1.0
+        elif self.moveLeft and not self.moveRight:
+            move_side = -1.0
+        else:
+            move_side = 0.0
+
+        # jump → 0/1
+        jump_prob = 1.0 if self.jump else 0.0
+
+        # normalize deltas back to [-1,1]
+        yaw_norm = float(self.yawDelta) / YAW_DELTA_MAX_DEG
+        pitch_norm = float(self.pitchDelta) / PITCH_DELTA_MAX_DEG
+
+        return np.array([
+            move_fwd,
+            move_side,
+            jump_prob,
+            np.clip(yaw_norm, -1.0, 1.0),
+            np.clip(pitch_norm, -1.0, 1.0)
+        ], dtype=np.float32)
+
+
     @staticmethod
-    def from_vector(vector: np.ndarray, env: "MinecraftEnv") -> "MinecraftAction":
+    def from_vector(vector: np.ndarray) -> "MinecraftAction":
         if vector.shape[0] != 5:
             raise ValueError(f"Expected action vector length 5, got {vector.shape}")
-
-        yaw_max = float(env.yaw_delta_max_deg / env.step_ticks)
-        pitch_max = float(env.pitch_delta_max_deg / env.step_ticks)
 
         move_backward, move_forward = MinecraftAction.discrete_move_value_from_continuous(vector[0])
         move_left, move_right = MinecraftAction.discrete_move_value_from_continuous(vector[1])
         jump = bool(vector[2] >= 0.5)
-        yaw_delta = float(vector[3]) * yaw_max
-        pitch_delta = float(vector[4]) * pitch_max
+        yaw_delta = float(vector[3]) * YAW_DELTA_MAX_DEG
+        pitch_delta = float(vector[4]) * PITCH_DELTA_MAX_DEG
 
         return MinecraftAction(
-            episode=env.episode,
-            step=env.step_idx + 1,
-            applyForTicks=env.step_ticks,
             moveForward=move_forward,
             moveBackward=move_backward,
             moveLeft=move_left,

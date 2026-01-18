@@ -47,7 +47,6 @@ class TrainConfig:
     learning_rate: float
 
     # Env params
-    step_ticks: int
     max_steps_per_episode: int
     curriculum_steps: int | None
 
@@ -70,40 +69,37 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
 
     if time_preset == "short":
         # Smoke test: minimal time, just to validate end-to-end pipeline.
-        total_steps = 2_048
+        total_steps = 2_048 * 4
         curriculum_steps = max(1, int(total_steps * 0.5))
         n_steps = 256
         batch_size = 64
         n_epochs = 2
         learning_rate = 3e-4
 
-        step_ticks = 2
         max_steps_per_episode = 100
 
 
     elif time_preset == "mid":
         # Minimal meaningful learning: enough for reward curves to move.
-        total_steps = 20_000
+        total_steps = 80_000
         curriculum_steps = max(1, int(total_steps * 0.5))
         n_steps = 1_024
         batch_size = 64
         n_epochs = 5
         learning_rate = 3e-4
 
-        step_ticks = 2
         max_steps_per_episode = 250
 
 
     elif time_preset == "long":
         # Realistic training budget. Adjust based on your setup speed.
-        total_steps = 150_000
+        total_steps = 600_00
         curriculum_steps = max(1, int(total_steps * 0.5))
         n_steps = 2_048
         batch_size = 128
         n_epochs = 10
         learning_rate = 3e-4
 
-        step_ticks = 2
         max_steps_per_episode = 500
 
     else:
@@ -123,7 +119,6 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
         batch_size=batch_size,
         n_epochs=n_epochs,
         learning_rate=learning_rate,
-        step_ticks=step_ticks,
         max_steps_per_episode=max_steps_per_episode,
         curriculum_steps=curriculum_steps,
     )
@@ -139,7 +134,7 @@ def select_device() -> str:
 
 def make_env(cfg: TrainConfig) -> Callable[[], gym.Env]:
     def _init():
-        env = MinecraftEnv(uri=URI, step_ticks=cfg.step_ticks, curriculum_steps=cfg.curriculum_steps)
+        env = MinecraftEnv(uri=URI, curriculum_steps=cfg.curriculum_steps)
 
         if cfg.env_type == "simple":
             env = SimpleGoalRewardWrapper(env)
