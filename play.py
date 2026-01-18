@@ -31,12 +31,11 @@ MAX_STEPS = 500
 MODEL_BASE_PATH = "models/"
 N_EPISODES = 20
 DETERMINISTIC = True
-SLEEP_BETWEEN_STEPS_SEC = 0.0  # set >0 for slower visible playback
 
 ARG_PARSER = argparse.ArgumentParser(description="Minecraft Agent: Choose your environment and model.")
 ARG_PARSER.add_argument(
     "--model",
-    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"]
+    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"]
 )
 ARG_PARSER.add_argument(
     "--env",
@@ -101,6 +100,8 @@ def load_model():
         return PPO.load(MODEL_BASE_PATH + "14_normalize_yaw_pitch_action_space/model.zip")
     elif model == "15":
         return PPO.load(MODEL_BASE_PATH + "15_streaming/model.zip")
+    elif model == "16":
+        return PPO.load(MODEL_BASE_PATH + "16_improve_shaping/model.zip")
     else:
         raise ValueError("Model must be specified with --model")
 
@@ -123,9 +124,6 @@ def main() -> None:
                 total_reward += float(reward)
                 steps += 1
                 done = bool(terminated or truncated)
-
-                if SLEEP_BETWEEN_STEPS_SEC > 0:
-                    time.sleep(SLEEP_BETWEEN_STEPS_SEC)
 
             print(f"Episode {ep}: steps={steps} total_reward={total_reward:.3f} terminated={terminated} truncated={truncated}")
     finally:
