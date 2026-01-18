@@ -23,7 +23,7 @@ class BlockTypes(enum.IntEnum):
 
 SOLID_BLOCKS = {BlockTypes.BLOCK, BlockTypes.START_BLOCK, BlockTypes.GOAL_BLOCK}
 
-FOV_RAYS = 50 * 50
+FOV_RAYS = 1 * 1
 
 class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
     metadata = {"render_modes": []}
