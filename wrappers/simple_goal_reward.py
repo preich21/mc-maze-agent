@@ -19,10 +19,14 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             "default": -0.002,
             "backward": -0.0025,
         }
-        self.goal_reward = 20.0
-        self.death_penalty = -20.0
+        self.goal_reward = 40.0
+        self.death_penalty = -40.0
 
-        self.new_block_reward = 0.02
+        self.pitch_range_center = 20.0
+        self.pitch_range_width = 30.0
+        self.pitch_range_reward = 0.0002
+
+        self.new_block_reward = 0.01
         self.max_steps = 500
 
         self.goal_first_seen_bonus = 0.5
@@ -60,6 +64,10 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         reward = self._get_step_penalty(parsed_action)
         info["shaping/step_penalty"] = float(reward)
 
+        pitch_rew = self._reward_pitch_range(obs)
+        info["shaping/pitch_rew"] = float(reward)
+        reward +=pitch_rew
+
         if self._steps >= self.max_steps:
             return obs, reward, terminated, True, info
 
@@ -92,6 +100,13 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             return float(self.step_penalty["backward"])
         else:
             return float(self.step_penalty["default"])
+
+    def _reward_pitch_range(self, obs: MinecraftObservation) -> float:
+        # Smooth Gaussian peak @center °
+        pitch_reward = self.pitch_range_reward * np.exp(
+            -((float(obs.pitch) - self.pitch_range_center) ** 2) / (2 * self.pitch_range_width ** 2)
+        )
+        return float(pitch_reward)
 
     def _mark_visited_if_solid(self, obs: MinecraftObservation) -> bool:
         if obs.standingOn not in SOLID_BLOCKS:

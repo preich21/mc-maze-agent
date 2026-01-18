@@ -6,6 +6,7 @@ import gymnasium as gym
 import numpy as np
 
 from mc_env.action import MinecraftAction
+from mc_env.action_history import ActionHistory
 from mc_env.observation import MinecraftObservation
 from mc_env.observations_buffer import ObservationsBuffer
 from mc_env.reset import ResetRequest
@@ -51,6 +52,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         # real obs space is defined in wrapper
         self.observation_space = gym.spaces.Space()
         self.action_space = MinecraftAction.get_space(self)
+        self.action_history = ActionHistory()
 
     def on_hello(self, message: HelloMessage):
         self.start_points = message.start_points
@@ -59,6 +61,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         super().reset(seed=seed)
         self.episode += 1
         self.step_idx = 0
+        self.action_history.clear()
 
         start_point = self._choose_start_point()
         t = 1.0
@@ -70,6 +73,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
 
         self._ws.send(request)
         obs, skipped_obs = self.observations_buffer.get_observation()
+        obs.lastActions = self.action_history.get_action_history_features()
         info = {
             "start_point": start_point,
             "debug/skipped_obs": skipped_obs
@@ -134,6 +138,8 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
 
         self._ws.send(parsed_action)
         obs, skipped_obs = self.observations_buffer.get_observation()
+        obs.lastActions = self.action_history.get_action_history_features()
+        self.action_history.save_action(action)
 
         reward = 0.0
         terminated = False

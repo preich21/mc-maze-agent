@@ -3,6 +3,7 @@ import logging
 import gymnasium as gym
 import numpy as np
 
+from mc_env.action_history import HISTORY_LENGTH
 from mc_env.env import FOV_RAYS, BlockTypes, FOV_HEIGHT, FOV_WIDTH
 from mc_env.observation import MinecraftObservation
 
@@ -41,7 +42,7 @@ class ObservationVectorizer(gym.ObservationWrapper):
         )
 
         # State branch: [x,y,z,yaw,pitch] + standing one-hot
-        state_dim = 8 + 5 + self._n_block
+        state_dim = 8 + 5 * HISTORY_LENGTH + self._n_block
         state_low = np.full(state_dim, -1.1, dtype=np.float32)  # slight margin
         state_high = np.full(state_dim, 1.1, dtype=np.float32)
         state_space = gym.spaces.Box(
@@ -98,15 +99,10 @@ class ObservationVectorizer(gym.ObservationWrapper):
             LOGGER.warn("Action age > 1.0 sec: %f", action_age)
         action_age_norm = np.clip(action_age, 0.0, 1.0)
 
-        if observation.activeActionRequest is not None:
-            prev_action_vec = observation.activeActionRequest.to_vector()
-        else:
-            prev_action_vec = np.zeros(5, dtype=np.float32)
-
         state = np.concatenate(
             [
                 np.array([x_norm, y_norm, z_norm, yaw_sin, yaw_cos, pitch_norm, died, action_age_norm], dtype=np.float32),
-                prev_action_vec,
+                observation.lastActions,
                 standing,
             ],
             axis=0,

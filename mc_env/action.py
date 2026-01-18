@@ -92,9 +92,9 @@ class MinecraftAction(OutgoingMessage):
         value = np.clip(float(value), -1.0, 1.0)
         bool1 = False
         bool2 = False
-        if value < -0.1:
+        if value < -0.15:
             bool1 = True
-        elif value > 0.1:
+        elif value > 0.15:
             bool2 = True
         return bool1, bool2
 
