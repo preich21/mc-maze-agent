@@ -14,8 +14,8 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
     def __init__(self, env: MinecraftEnv):
         super().__init__(env)
         self.step_penalty = -0.002
-        self.goal_reward = 100.0
-        self.death_penalty = -10.0
+        self.goal_reward = 10.0
+        self.death_penalty = -5.0
 
         self.new_block_reward = 0.02
         self.max_steps = 500
