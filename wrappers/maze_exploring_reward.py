@@ -57,6 +57,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._steps = 0
         self.maze_size = 1
         self._reached_goal_streak = 0
+        self._truncated_streak = 0
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         self._episode += 1
@@ -68,6 +69,9 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         if self._reached_goal_streak >= 20:
             self.maze_size += 1
             self._reached_goal_streak = 0
+        elif self._truncated_streak >= 20:
+            self.maze_size = max(1, self.maze_size - 1)
+            self._truncated_streak = 0
 
         new_options = options.copy() if options is not None else {}
         new_options["mazeSize"] = self.maze_size
@@ -109,6 +113,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
             reward = self.goal_reward
             terminated = True
             self._reached_goal_streak += 1
+            self._truncated_streak = 0
             print(f"Reached GOAL_BLOCK after {self._steps} steps in episode {self._episode}! Terminating episode.")
             return obs, reward, terminated, truncated, info
 
@@ -116,6 +121,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         if self._steps >= self.max_steps:
             truncated = True
             self._reached_goal_streak = 0
+            self._truncated_streak += 1
             print("Max steps reached, truncating episode.")
 
         reward = self.step_penalty
