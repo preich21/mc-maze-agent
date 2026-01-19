@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 
+from mc_env.action import YAW_DELTA_MAX_DEG, PITCH_DELTA_MAX_DEG
 from mc_env.observation import MinecraftObservation
 from mc_env.env import BlockTypes
 
@@ -56,8 +57,8 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
         self._episode_steps += 1
         self._episode_return += float(reward)
 
-        yaw_delta = abs(float(action[3])) * 90.0
-        pitch_delta = abs(float(action[4])) * 45.0
+        yaw_delta = abs(float(action[3])) * YAW_DELTA_MAX_DEG
+        pitch_delta = abs(float(action[4])) * PITCH_DELTA_MAX_DEG
         self._yaw_delta_avg += yaw_delta
         self._pitch_delta_avg += pitch_delta
         if yaw_delta > self._yaw_delta_max:
@@ -86,8 +87,6 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
 
             # Attach episode metrics to info so callbacks can log them to TensorBoard
             info = dict(info)
-            info["debug/episodes"] = int(self._episodes)
-            info["debug/global_steps"] = int(self._global_steps)
             info["debug/ep_len"] = int(self._episode_steps)
             info["debug/ep_return"] = float(self._episode_return)
             info["debug/goal_seen_steps"] = int(self._goal_seen_steps)

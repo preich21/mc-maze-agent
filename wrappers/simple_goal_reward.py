@@ -65,7 +65,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         info["shaping/step_penalty"] = float(reward)
 
         pitch_rew = self._reward_pitch_range(obs)
-        info["shaping/pitch_rew"] = float(reward)
+        info["shaping/pitch_rew"] = float(pitch_rew)
         reward +=pitch_rew
 
         if self._steps >= self.max_steps:
