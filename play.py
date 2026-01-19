@@ -35,7 +35,7 @@ DETERMINISTIC = True
 ARG_PARSER = argparse.ArgumentParser(description="Minecraft Agent: Choose your environment and model.")
 ARG_PARSER.add_argument(
     "--model",
-    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18"]
+    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"]
 )
 ARG_PARSER.add_argument(
     "--env",
@@ -106,6 +106,8 @@ def load_model():
         return PPO.load(MODEL_BASE_PATH + "17_action_history_3/model.zip")
     elif model == "18":
         return PPO.load(MODEL_BASE_PATH + "18_easier_map_mid_training/model.zip")
+    elif model == "19":
+        return PPO.load(MODEL_BASE_PATH + "19_shaping_reverted_move_action_space_reverted/model.zip")
     else:
         raise ValueError("Model must be specified with --model")
 

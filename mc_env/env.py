@@ -145,7 +145,9 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         terminated = False
         truncated = False
         info = {
-            "debug/skipped_obs": skipped_obs
+            "debug/skipped_obs": skipped_obs,
+            "debug/yaw_delta": float(parsed_action.yawDelta),
+            "debug/pitch_delta": float(parsed_action.pitchDelta),
         }
         return obs, reward, terminated, truncated, info
 
