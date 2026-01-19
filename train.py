@@ -23,7 +23,7 @@ from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # --------- Config ---------
 URI = "ws://127.0.0.1:8081"
-TOTAL_STEPS = 570_000
+TOTAL_STEPS = 10_000
 N_STEPS = 2048
 BATCH_SIZE = 64
 STEP_TICKS = 2

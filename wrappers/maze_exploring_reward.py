@@ -11,7 +11,8 @@ Reward shaping:
 from __future__ import annotations
 
 import math
-from collections import deque
+import random
+from collections import deque, defaultdict
 from typing import Optional, List, Tuple, Any
 
 import gymnasium as gym
@@ -35,7 +36,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
 
         # Progress / stuck shaping
         self.goal_distance_weight = 0.05
-        self.no_progress_penalty = -0.1
+        self.no_progress_penalty = -0.01
         self.no_progress_window = 10
 
         # Collision intent gating (avoid punishing tiny nudges / near-zero actions)
@@ -55,9 +56,15 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
 
         self._episode = 0
         self._steps = 0
-        self.maze_size = 1
-        self._reached_goal_streak = 0
-        self._truncated_streak = 0
+
+        self.maze_size = 3
+        self.current_target_maze_size = 3
+        self.max_maze_size = 20
+
+        self.success_window = 25
+        self.episode_outcomes = defaultdict(
+            lambda: deque(maxlen=self.success_window)
+        )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         self._episode += 1
@@ -66,12 +73,14 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self.previous_distance_to_goal = 5_000.0
         self._recent_goal_distances.clear()
 
-        if self._reached_goal_streak >= 20:
-            self.maze_size += 1
-            self._reached_goal_streak = 0
-        elif self._truncated_streak >= 20:
-            self.maze_size = max(1, self.maze_size - 1)
-            self._truncated_streak = 0
+        self._update_target_size()
+
+        self.maze_size = self._generate_random_maze_size()
+        self.max_steps = min(int(100 * (2 ** (self.maze_size - 1))), 2500)
+        if self.maze_size >= 5:
+            self.no_progress_penalty = 0.0
+        else:
+            self.no_progress_penalty = -0.01
 
         new_options = options.copy() if options is not None else {}
         new_options["mazeSize"] = self.maze_size
@@ -112,16 +121,14 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         if obs.standingOn == BlockTypes.GOAL_BLOCK:
             reward = self.goal_reward
             terminated = True
-            self._reached_goal_streak += 1
-            self._truncated_streak = 0
+            self._record_episode_outcome(success=True)
             print(f"Reached GOAL_BLOCK after {self._steps} steps in episode {self._episode}! Terminating episode.")
             return obs, reward, terminated, truncated, info
 
         # Truncation: max steps
         if self._steps >= self.max_steps:
             truncated = True
-            self._reached_goal_streak = 0
-            self._truncated_streak += 1
+            self._record_episode_outcome(success=False)
             print("Max steps reached, truncating episode.")
 
         reward = self.step_penalty
@@ -143,7 +150,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._recent_goal_distances.append(float(goal_distance))
 
         # Exploration bonus (only for small mazes)
-        if self.maze_size < 4 and self._mark_visited_if_solid(obs):
+        if self._mark_visited_if_solid(obs):
             reward += self.new_block_reward
 
         # Optional camera penalty (off by default)
@@ -319,3 +326,52 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
 
         alpha = 0.25
         return float(base) + alpha * dist_to_target_center
+
+
+    def _generate_random_maze_size(self):
+        s = self.current_target_maze_size
+
+        choices = [
+            (s, 0.4),
+            (s - 1, 0.3),
+            (s - 2, 0.2),
+            (random.randint(1, 3), 0.1),
+        ]
+
+        r = random.random()
+        acc = 0.0
+        for size, prob in choices:
+            acc += prob
+            if r <= acc:
+                return max(1, size)
+
+        return s
+
+
+    def _record_episode_outcome(self, success: bool):
+        size = self.maze_size
+        self.episode_outcomes[size].append(success)
+
+
+    def _success_rate(self, size: int):
+        outcomes = self.episode_outcomes[size]
+        if len(outcomes) < self.success_window:
+            return None
+        return sum(outcomes) / len(outcomes)
+
+
+    def _update_target_size(self):
+        rate = self._success_rate(self.current_target_maze_size)
+        if rate is None:
+            return
+
+        if rate > 0.8:
+            self.current_target_maze_size = min(
+                self.current_target_maze_size + 1,
+                self.max_maze_size
+            )
+            print(f"↑ Increasing target size to {self.current_target_maze_size}")
+
+        elif rate < 0.2 and self.current_target_maze_size > 1:
+            self.current_target_maze_size -= 1
+            print(f"↓ Decreasing target size to {self.current_target_maze_size}")
