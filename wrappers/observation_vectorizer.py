@@ -14,7 +14,7 @@ class ObservationVectorizer(gym.ObservationWrapper[np.ndarray, np.ndarray, Minec
         super().__init__(env)
         low = np.array(
             [-0.5] * 3 # dx, dy, dz
-            + [-1, -1, -1, -1] # cos(yaw), sin(yaw), cos(pitch), sin(pitch)
+            + [-1, -1] # cos(yaw), sin(yaw)
             + [0] * len(BlockTypes) # standing on one-hot
             + [0] * (8 * len(BlockTypes)) # surrounding blocks one-hot
             + [-1.0] * FOV_RAYS # fov distances
@@ -24,7 +24,7 @@ class ObservationVectorizer(gym.ObservationWrapper[np.ndarray, np.ndarray, Minec
         )
         high = np.array(
             [0.5] * 3 # dx, dy, dz
-            + [1, 1, 1, 1] # cos(yaw), sin(yaw), cos(pitch), sin(pitch)
+            + [1, 1] # cos(yaw), sin(yaw)
             + [1] * len(BlockTypes) # standing on one-hot
             + [1] * (8 * len(BlockTypes)) # surrounding blocks one-hot
             + [50.0] * FOV_RAYS # fov distances
@@ -41,8 +41,6 @@ class ObservationVectorizer(gym.ObservationWrapper[np.ndarray, np.ndarray, Minec
         dz = np.float32(observation.dz)
         yaw_cos = math.cos(np.float32(observation.yaw))
         yaw_sin = math.sin(np.float32(observation.yaw))
-        pitch_cos = math.cos(np.float32(observation.pitch))
-        pitch_sin = math.sin(np.float32(observation.pitch))
 
         standing_vec = np.zeros(len(BlockTypes), dtype=np.float32)
         standing_idx = int(observation.standingOn)
@@ -68,7 +66,7 @@ class ObservationVectorizer(gym.ObservationWrapper[np.ndarray, np.ndarray, Minec
         fov_blocks_oh = np.eye(4, dtype=np.float32)[fov_blocks].reshape(-1)
 
         vec = np.concatenate([
-            np.array([dx, dy, dz, yaw_cos, yaw_sin, pitch_cos, pitch_sin], dtype=np.float32),
+            np.array([dx, dy, dz, yaw_cos, yaw_sin], dtype=np.float32),
             standing_vec,
             surrounding_blocks_vec,
             fov_dist.astype(np.float32),

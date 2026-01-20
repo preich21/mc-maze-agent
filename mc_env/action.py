@@ -29,17 +29,15 @@ class MinecraftAction(OutgoingMessage):
 
     @staticmethod
     def from_vector(vector: np.ndarray, env: "MinecraftEnv") -> "MinecraftAction":
-        if vector.shape[0] != 5:
+        if vector.shape[0] != 4:
             raise ValueError(f"Expected action vector length 5, got {vector.shape}")
 
         yaw_max = float(env.yaw_delta_max_deg / env.step_ticks)
-        pitch_max = float(env.pitch_delta_max_deg / env.step_ticks)
 
         move_forward = float(np.clip(vector[0], -1.0, 1.0))
         move_sidewards = float(np.clip(vector[1], -1.0, 1.0))
         jump = bool(vector[2] >= 0.5)
         yaw_delta = float(np.clip(vector[3], -yaw_max, yaw_max))
-        pitch_delta = float(np.clip(vector[4], -pitch_max, pitch_max))
 
         return MinecraftAction(
             episode=env.episode,
@@ -49,7 +47,7 @@ class MinecraftAction(OutgoingMessage):
             moveSidewards=move_sidewards,
             jump=jump,
             yawDelta=yaw_delta,
-            pitchDelta=pitch_delta,
+            pitchDelta=0,
         )
 
     @staticmethod
@@ -60,25 +58,8 @@ class MinecraftAction(OutgoingMessage):
             - moveSidewards: -1..1 (negative = left)
             - jump: 0 or 1 (>=0.5 treated as True)
             - yawDelta: degrees per tick (will be applied for env.step_ticks ticks)
-            - pitchDelta: degrees per tick (clamped to [-90,90] in MC)
             """
-        # Allow full per-tick rotation up to configured maxima.
         yaw_max_per_tick = float(env.yaw_delta_max_deg / env.step_ticks)
-        pitch_max_per_tick = float(env.pitch_delta_max_deg / env.step_ticks)
-        low = np.array([-1.0, -1.0, 0.0, -yaw_max_per_tick, -pitch_max_per_tick], dtype=np.float32)
-        high = np.array([1.0, 1.0, 1.0, yaw_max_per_tick, pitch_max_per_tick], dtype=np.float32)
+        low = np.array([-1.0, -1.0, 0.0, -yaw_max_per_tick], dtype=np.float32)
+        high = np.array([1.0, 1.0, 1.0, yaw_max_per_tick], dtype=np.float32)
         return gym.spaces.Box(low=low, high=high, dtype=np.float32)
-
-    # def to_vector(self) -> MinecraftActionVector:
-    #     return MinecraftActionVector(
-    #         vec=np.array(
-    #             [
-    #                 self.moveForward,
-    #                 self.moveSidewards,
-    #                 1.0 if self.jump else 0.0,
-    #                 self.yawDelta,
-    #                 self.pitchDelta,
-    #             ],
-    #             dtype=np.float32,
-    #         )
-    #     )
