@@ -57,7 +57,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._episode = 0
         self._steps = 0
 
-        self.maze_size = 3
+        self.maze_size = 1
         self.current_target_maze_size = 5
         self.max_maze_size = 20
 
@@ -297,6 +297,9 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         x = int(math.floor(float(x_exact)))
         z = int(math.floor(float(z_exact)))
 
+        if self.bfs_distances[x][z] == 0.0:
+            return 0.0
+
         rows = len(self.bfs_distances)
         cols = len(self.bfs_distances[0]) if rows else 0
         if not (0 <= x < rows and 0 <= z < cols):
@@ -324,8 +327,8 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         dz = float(z_exact) - target_z
         dist_to_target_center = math.sqrt(dx * dx + dz * dz)
 
-        alpha = 0.25
-        return float(base) + alpha * dist_to_target_center
+        alpha = 1.0
+        return float(self.bfs_distances[tx][tz]) + alpha * dist_to_target_center
 
 
     def _generate_random_maze_size(self):
