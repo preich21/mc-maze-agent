@@ -22,13 +22,13 @@ from wrappers.simple_goal_reward import SimpleGoalRewardWrapper
 from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 # --------- Config ---------
+LOGDIR = "runs/ppo_minecraft"
 URI = "ws://127.0.0.1:8081"
-TOTAL_STEPS = 300_000
+TOTAL_STEPS = 180_000
 N_STEPS = 2048
 BATCH_SIZE = 64
 STEP_TICKS = 2
 MAX_STEPS = 500
-LOGDIR = "runs/ppo_minecraft"
 LEARNING_RATE = 3e-4
 SEED = 42
 
@@ -108,6 +108,7 @@ def main() -> None:
             tensorboard_log=LOGDIR,
             seed=SEED,
             n_steps=N_STEPS,
+            ent_coef=0.005,
         )
         model.set_logger(logger)
         model.learn(total_timesteps=TOTAL_STEPS, progress_bar=True)

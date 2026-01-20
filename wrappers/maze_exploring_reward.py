@@ -30,12 +30,12 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
 
         self.step_penalty = -0.005
         self.goal_reward = 100.0
-        self.new_block_reward = 0.01
+        self.new_block_reward = 0.002
         self.wall_collision_penalty = -0.005
         self.unnecessary_jump_penalty = -0.005
 
         # Progress / stuck shaping
-        self.goal_distance_weight = 0.05
+        self.goal_distance_weight = 0.07
         self.no_progress_penalty = -0.01
         self.no_progress_window = 10
 
@@ -51,14 +51,17 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._visited_blocks: set[tuple[int, int, int]] = set()
         self.bfs_distances: List[List[Optional[int]]] = []
 
-        self.previous_distance_to_goal: float = 5_000.0
+        self.previous_distance_to_goal: float = 5000.0
         self._recent_goal_distances: deque[float] = deque(maxlen=self.no_progress_window)
+
+        self.gamma = 0.99
+        self.tau = 10.0
 
         self._episode = 0
         self._steps = 0
 
         self.maze_size = 1
-        self.current_target_maze_size = 5
+        self.current_target_maze_size = 1
         self.max_maze_size = 20
 
         self.success_window = 25
@@ -70,7 +73,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._episode += 1
         self._steps = 0
         self._visited_blocks.clear()
-        self.previous_distance_to_goal = 5_000.0
+        self.previous_distance_to_goal = 5000.0
         self._recent_goal_distances.clear()
 
         self._update_target_size()
@@ -99,6 +102,12 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
             goal=(goal_coordinate, goal_coordinate),
         )
 
+        start_distance = self.bfs_distances[1][1]
+        if start_distance is not None:
+            self.tau = max(5.0, float(start_distance))
+        else:
+            self.tau = 10.0
+
         print(f"Starting episode {self._episode} with mazeSize={new_options['mazeSize']}")
 
         # Mark start position as visited (if we're standing on a solid block)
@@ -109,7 +118,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
             self.previous_distance_to_goal = float(goal_distance)
             self._recent_goal_distances.append(float(goal_distance))
 
-        obs.maze_distance = self.previous_distance_to_goal
+        obs.maze_distance = goal_distance
         return obs, info
 
     def step(self, action: np.ndarray):
@@ -140,17 +149,17 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
             reward += self.unreachable_penalty
             goal_distance = self.previous_distance_to_goal
         else:
-            goal_distance = float(goal_distance)
-            delta = self.previous_distance_to_goal - goal_distance
-            delta = float(np.clip(delta, -2.0, 2.0))  # clip both ways
-            reward += self.goal_distance_weight * delta
+            previous_distance_normalized = -math.tanh(self.previous_distance_to_goal / self.tau)
+            goal_distance_normalized = -math.tanh(goal_distance / self.tau)
+            shaping = self.gamma * goal_distance_normalized - previous_distance_normalized
+            reward += self.goal_distance_weight * shaping
             self.previous_distance_to_goal = goal_distance
 
         # Keep a rolling window for "no progress" checks
         self._recent_goal_distances.append(float(goal_distance))
 
         # Exploration bonus (only for small mazes)
-        if self._mark_visited_if_solid(obs):
+        if self.maze_size <=4 and self._mark_visited_if_solid(obs):
             reward += self.new_block_reward
 
         # Optional camera penalty (off by default)
@@ -241,10 +250,10 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         goal: Tuple[int, int],
     ) -> List[List[Optional[int]]]:
         """
-        Builds a distance field dist[r][c] = shortest steps from (r,c) to goal,
+        Builds a distance field dist[c][r] = shortest steps from (c, r) to goal,
         or None if unreachable or blocked.
-        maze[r][c] == True  => wall (blocked)
-        maze[r][c] == False => open
+        maze[c][r] == True  => wall (blocked)
+        maze[c][r] == False => open
         """
         rows = len(maze)
         cols = len(maze[0]) if rows else 0
@@ -297,9 +306,6 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         x = int(math.floor(float(x_exact)))
         z = int(math.floor(float(z_exact)))
 
-        if self.bfs_distances[x][z] == 0.0:
-            return 0.0
-
         rows = len(self.bfs_distances)
         cols = len(self.bfs_distances[0]) if rows else 0
         if not (0 <= x < rows and 0 <= z < cols):
@@ -308,6 +314,8 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         base = self.bfs_distances[x][z]
         if base is None:
             return None
+        elif base == 0.0:
+            return 0.0
 
         best_n = (x, z)
         best_d = base
