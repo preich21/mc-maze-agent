@@ -54,6 +54,9 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self.action_space = MinecraftAction.get_space(self)
         self.action_history = ActionHistory()
 
+        self.yaw_delta_sum = 0.0
+        self.pitch_delta_sum = 0.0
+
     def on_hello(self, message: HelloMessage):
         self.start_points = message.start_points
 
@@ -117,7 +120,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         pitch_hi = (1.0 - t) * easy_hi + t * hard_hi
 
         pitch_delta = float(self.np_random.uniform(pitch_lo, pitch_hi))
-        start_point.pitch = ((start_point.pitch + pitch_delta) % 180.0) - 90.0
+        start_point.pitch = np.clip(start_point.pitch + pitch_delta, -90.0, 90.0)
 
     def _randomize_yaw(self, start_point: StartPoint, t: float) -> None:
         # Start easy: narrow yaw, then widen.
@@ -144,10 +147,12 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         reward = 0.0
         terminated = False
         truncated = False
+        self.yaw_delta_sum += float(parsed_action.yawDelta)
+        self.pitch_delta_sum += float(parsed_action.pitchDelta)
         info = {
             "debug/skipped_obs": skipped_obs,
-            "debug/yaw_delta": float(parsed_action.yawDelta),
-            "debug/pitch_delta": float(parsed_action.pitchDelta),
+            "debug/yaw_delta_avg": float(self.yaw_delta_sum / self.total_steps),
+            "debug/pitch_delta_avg": float(self.pitch_delta_sum / self.total_steps),
         }
         return obs, reward, terminated, truncated, info
 

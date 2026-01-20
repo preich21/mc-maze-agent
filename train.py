@@ -166,7 +166,7 @@ def main() -> None:
         policy_kwargs={
             "normalize_images": False,
             # Larger initial exploration in continuous action dims
-            "log_std_init": -0.5,  # try -0.5 or 0.0 (bigger == noisier)
+            "log_std_init": 0.0,  # try -0.5 or 0.0 (bigger == noisier)
         },
         env=vec_env,
         device=device,

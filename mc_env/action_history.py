@@ -2,7 +2,7 @@ from collections import deque
 
 import numpy as np
 
-HISTORY_LENGTH = 3
+HISTORY_LENGTH = 1
 
 class ActionHistory:
     def __init__(self):
