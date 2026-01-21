@@ -6,7 +6,7 @@ class ObservationsBuffer:
     latest_obs: MinecraftObservation | None
     skipped_obs: int
 
-    def __init__(self, obs_timeout_s: float = 1.0):
+    def __init__(self, obs_timeout_s: float = 2.0):
         self.clear()
         self.obs_timeout_s = obs_timeout_s
 

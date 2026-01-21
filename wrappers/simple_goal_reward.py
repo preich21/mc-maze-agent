@@ -19,8 +19,8 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             "default": -0.002,
             "backward": -0.0025,
         }
-        self.goal_reward = 20.0
-        self.death_penalty = -20.0
+        self.goal_reward = 40.0
+        self.death_penalty = -40.0
 
         self.new_block_reward = 0.02
         # self.goal_reward = 40.0
@@ -36,7 +36,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         self.goal_first_seen_bonus = 0.5
         self.goal_distance_weight = 0.1
 
-        self.goal_not_visible_penalty = -0.001
+        # self.goal_not_visible_penalty = -0.001
 
         self.goal_seen: bool = False
         self.last_goal_distance: Optional[float] = None
@@ -76,19 +76,18 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             return obs, reward, terminated, True, info
 
         goal_dist = SimpleGoalRewardWrapper._get_goal_visible_distance(obs)
+        goal_dist_rew = 0.0
         if goal_dist is not None:
             if not self.goal_seen:
                 reward += float(self.goal_first_seen_bonus)
                 self.goal_seen = True
-
             if self.last_goal_distance is not None:
                 delta = self.last_goal_distance - goal_dist
-                delta = max(-1.0, min(1.0, delta))
-                reward += float(self.goal_distance_weight) * float(delta)
-
-            self.last_goal_distance = goal_dist
-        else:
-            reward += float(self.goal_not_visible_penalty)
+                goal_dist_rew = float(self.goal_distance_weight) * float(delta)
+            if self.last_goal_distance is None or (goal_dist < self.last_goal_distance):
+                self.last_goal_distance = goal_dist
+        reward += goal_dist_rew
+        info["shaping/goal_dist_rew"] = float(goal_dist_rew)
 
         if self._mark_visited_if_solid(obs):
             reward += float(self.new_block_reward)
