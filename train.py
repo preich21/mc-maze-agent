@@ -26,10 +26,16 @@ from wrappers.maze_exploring_reward import MazeExploringRewardWrapper
 
 
 # --------- Static config ---------
-URI = "ws://127.0.0.1:8081"
 LOGDIR = "models/current_run"
 SEED = 42
 
+WS_URIS = [
+    "ws://127.0.0.1:8081",
+    "ws://127.0.0.1:8082",
+    "ws://127.0.0.1:8083",
+    "ws://127.0.0.1:8084",
+    "ws://127.0.0.1:8085",
+]
 
 @dataclass(frozen=True)
 class TrainConfig:
@@ -93,7 +99,7 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
 
     elif time_preset == "long":
         # Realistic training budget. Adjust based on your setup speed.
-        total_steps = 1_200_000
+        total_steps = 2_000_000
         curriculum_steps = max(1, int(total_steps * 0.5))
         n_steps = 2_048
         batch_size = 128
@@ -132,9 +138,9 @@ def select_device() -> str:
     return "cpu"
 
 
-def make_env(cfg: TrainConfig) -> Callable[[], gym.Env]:
+def make_env(cfg: TrainConfig, uri: str) -> Callable[[], gym.Env]:
     def _init():
-        env = MinecraftEnv(uri=URI, curriculum_steps=cfg.curriculum_steps)
+        env = MinecraftEnv(uri=uri, curriculum_steps=cfg.curriculum_steps)
 
         if cfg.env_type == "simple":
             env = SimpleGoalRewardWrapper(env)
@@ -158,7 +164,7 @@ def main() -> None:
     os.makedirs(LOGDIR, exist_ok=True)
     device = select_device()
 
-    vec_env = DummyVecEnv([make_env(cfg)])
+    vec_env = DummyVecEnv([make_env(cfg, uri) for uri in WS_URIS])
     vec_env.seed(SEED)
 
     model = PPO(
@@ -179,7 +185,7 @@ def main() -> None:
         n_epochs=cfg.n_epochs,
         gamma=0.99,
         gae_lambda=0.95,
-        clip_range=0.2,
+        clip_range=lambda progress: 0.1 + 0.1 * progress,
         ent_coef=0.10,
         vf_coef=0.5,
     )

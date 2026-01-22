@@ -19,8 +19,8 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             "default": -0.002,
             "backward": -0.0025,
         }
-        self.goal_reward = 40.0
-        self.death_penalty = -40.0
+        self.goal_reward = 80.0
+        self.death_penalty = -80.0
 
         self.new_block_reward = 0.02
         # self.goal_reward = 40.0
@@ -88,6 +88,15 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
                 self.last_goal_distance = goal_dist
         reward += goal_dist_rew
         info["shaping/goal_dist_rew"] = float(goal_dist_rew)
+
+        visible_blocks = len([b for b in obs.fovBlocks if b != BlockTypes.AIR])
+        if visible_blocks == 0:
+            # Encourage rotation when truly blind
+            if abs(parsed_action.yawDelta) > 0.1:  # Actually turning
+                fov_empty_bonus = 0.015  # Medium strength
+            else:
+                fov_empty_bonus = -0.005  # "STOP standing still blind!"
+        info["shaping/fov_empty_bonus"] = float(goal_dist_rew)
 
         if self._mark_visited_if_solid(obs):
             reward += float(self.new_block_reward)
