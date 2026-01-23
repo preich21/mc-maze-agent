@@ -3,7 +3,6 @@ from typing import List, Any, Dict
 
 import numpy as np
 
-from mc_env.action import MinecraftAction
 from ws.messages import IncomingMessage, get_or_throw
 
 @dataclass
@@ -18,6 +17,7 @@ class MinecraftObservation(IncomingMessage):
     pitch: float
     died: bool
     standingOn: int
+    has_ground_below: bool
     fovDistances: List[float]
     fovBlocks: List[int]
 
@@ -50,6 +50,7 @@ class MinecraftObservation(IncomingMessage):
             pitch=float(get_or_throw(message, "pitch")),
             died=bool(get_or_throw(message, "died")),
             standingOn=standing,
+            has_ground_below=bool(get_or_throw(message, "hasGroundBelow")),
             fovDistances=[float(v) for v in fov_dist],
             fovBlocks=[int(v) for v in fov_blocks],
         )

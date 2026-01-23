@@ -41,7 +41,7 @@ class ObservationVectorizer(gym.ObservationWrapper):
         )
 
         # State branch: [x,y,z,yaw,pitch] + standing one-hot
-        state_dim = 8 + 5 * HISTORY_LENGTH + len(BlockTypes)
+        state_dim = 9 + 5 * HISTORY_LENGTH + len(BlockTypes)
         state_low = np.full(state_dim, -1.1, dtype=np.float32)  # slight margin
         state_high = np.full(state_dim, 1.1, dtype=np.float32)
         state_space = gym.spaces.Box(
@@ -96,6 +96,7 @@ class ObservationVectorizer(gym.ObservationWrapper):
             standing[standing_idx] = 1.0
 
         died = float(observation.died)
+        has_ground_below = float(observation.has_ground_below)
 
         if observation.actionStartedTick is not None:
             action_age = float(observation.tick - observation.actionStartedTick) / 20.0  # ticks → sec
@@ -107,7 +108,7 @@ class ObservationVectorizer(gym.ObservationWrapper):
 
         state = np.concatenate(
             [
-                np.array([x_norm, y_norm, z_norm, yaw_sin, yaw_cos, pitch_norm, died, action_age_norm], dtype=np.float32),
+                np.array([x_norm, y_norm, z_norm, yaw_sin, yaw_cos, pitch_norm, died, has_ground_below, action_age_norm], dtype=np.float32),
                 observation.lastActions,
                 standing,
             ],

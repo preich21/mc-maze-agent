@@ -15,32 +15,31 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         super().__init__(env)
         self.mc_env = env
         self.step_penalty = {
-            "survival_reward": 0.003,
-        #     "only_forward": -0.001,
-        #     "partly_forward": -0.0015,
-        #     "default": -0.002,
-        #     "backward": -0.0025,
+            "survival_reward": 0.0005,
+            "only_forward": -0.001,
+            "partly_forward": -0.0015,
+            "default": -0.002,
+            "backward": -0.003,
         }
         self.goal_reward = 20.0
         self.death_penalty = -20.0
         self.fov_empty_penalty = -0.005
-        self.fov_empty_do_nothing_bonus = 0.001
+        self.fov_empty_do_nothing_bonus = 0.0005
         self.unsafe_forward_penalty = -0.05
+        self.no_ground_below_penalty = -0.5
 
         self.new_block_reward = 0.02
-        # self.goal_reward = 40.0
-        # self.death_penalty = -40.0
-        #
-        # self.pitch_range_center = 20.0
-        # self.pitch_range_width = 30.0
-        # self.pitch_range_reward = 0.0002
-        #
+
+        self.pitch_range_center = 20.0
+        self.pitch_range_width = 30.0
+        self.pitch_range_reward = 0.0001
+
         # self.new_block_reward = 0.01
         self.max_steps = 500
 
-        self.goal_first_seen_bonus = 0.5
-        self.goal_seen_bonus = 0.0005
-        self.goal_distance_weight = 0.2
+        self.goal_first_seen_bonus = 0.02
+        # self.goal_seen_bonus = 0.0005
+        self.goal_distance_weight = 0.3
         self.prev_dist_to_goal = None
 
         # self.goal_not_visible_penalty = -0.001
@@ -74,12 +73,12 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             return obs, self.goal_reward, True, truncated, info
 
         reward = self.step_penalty["survival_reward"]
-        # reward = self._get_step_penalty(parsed_action)
+        reward += self._get_step_penalty(parsed_action)
         info["shaping/step_penalty"] = float(reward)
 
-        # pitch_rew = self._reward_pitch_range(obs)
-        # info["shaping/pitch_rew"] = float(pitch_rew)
-        # reward +=pitch_rew
+        pitch_rew = self._reward_pitch_range(obs)
+        info["shaping/pitch_rew"] = float(pitch_rew)
+        reward +=pitch_rew
 
         if self._steps >= self.max_steps:
             return obs, reward, terminated, True, info
@@ -89,8 +88,8 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             if not self.goal_seen:
                 reward += float(self.goal_first_seen_bonus)
                 self.goal_seen = True
-            else:
-                reward += float(self.goal_seen_bonus)
+            # else:
+            #     reward += float(self.goal_seen_bonus)
 
         # --- Distance to goal shaping ---
         dist_to_goal = self._distance_between((obs.x, obs.y, obs.z),
@@ -101,6 +100,8 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         info["shaping/distance_to_goal_delta"] = dist_to_goal_delta
         info["shaping/distance_shaping"] = distance_shaping
         self.prev_dist_to_goal = dist_to_goal
+        if dist_to_goal_delta < -0.05:
+            reward -= 0.01
 
         visible_blocks = len([b for b in obs.fovBlocks if b != BlockTypes.AIR])
         fov_empty_rew = 0
@@ -113,32 +114,35 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         reward += fov_empty_rew
 
         unsafe_forward = 0
-        if not self._has_ground_ahead(obs) and parsed_action.moveForward:
+        if not self._has_ground_ahead(obs) and parsed_action.moveForward and dist_to_goal_delta <= 0:
             unsafe_forward = self.unsafe_forward_penalty
         info["shaping/unsafe_forward"] = unsafe_forward
         reward += unsafe_forward
+
+        if not obs.has_ground_below:
+            reward += self.no_ground_below_penalty
 
         if self._mark_visited_if_solid(obs):
             reward += float(self.new_block_reward)
 
         return obs, reward, terminated, truncated, info
 
-    # def _get_step_penalty(self, action: MinecraftAction) -> float:
-    #     if action.moveForward and not action.moveLeft and not action.moveRight:
-    #         return float(self.step_penalty["only_forward"])
-    #     elif action.moveForward:
-    #         return float(self.step_penalty["partly_forward"])
-    #     elif action.moveBackward:
-    #         return float(self.step_penalty["backward"])
-    #     else:
-    #         return float(self.step_penalty["default"])
+    def _get_step_penalty(self, action: MinecraftAction) -> float:
+        if action.moveForward and not action.moveLeft and not action.moveRight:
+            return float(self.step_penalty["only_forward"])
+        elif action.moveForward:
+            return float(self.step_penalty["partly_forward"])
+        elif action.moveBackward:
+            return float(self.step_penalty["backward"])
+        else:
+            return float(self.step_penalty["default"])
 
-    # def _reward_pitch_range(self, obs: MinecraftObservation) -> float:
-    #     # Smooth Gaussian peak @center °
-    #     pitch_reward = self.pitch_range_reward * np.exp(
-    #         -((float(obs.pitch) - self.pitch_range_center) ** 2) / (2 * self.pitch_range_width ** 2)
-    #     )
-    #     return float(pitch_reward)
+    def _reward_pitch_range(self, obs: MinecraftObservation) -> float:
+        # Smooth Gaussian peak @center °
+        pitch_reward = self.pitch_range_reward * np.exp(
+            -((float(obs.pitch) - self.pitch_range_center) ** 2) / (2 * self.pitch_range_width ** 2)
+        )
+        return float(pitch_reward)
 
     def _mark_visited_if_solid(self, obs: MinecraftObservation) -> bool:
         if obs.standingOn not in SOLID_BLOCKS:
