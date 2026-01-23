@@ -1,3 +1,4 @@
+import struct
 from dataclasses import dataclass
 from typing import List, Any, Dict
 
@@ -53,4 +54,72 @@ class MinecraftObservation(IncomingMessage):
             has_ground_below=bool(get_or_throw(message, "hasGroundBelow")),
             fovDistances=[float(v) for v in fov_dist],
             fovBlocks=[int(v) for v in fov_blocks],
+        )
+
+    @staticmethod
+    def half_to_float(h: int) -> float:
+        """Converts 16-bit float (half) in 32-bit float."""
+        s = int((h >> 15) & 0x00000001)  # sign
+        e = int((h >> 10) & 0x0000001f)  # exponent
+        f = int(h & 0x03ff)  # fraction
+
+        if e == 0:
+            if f == 0:
+                return float((-1) ** s * 0.0)
+            else:
+                # subnormal number
+                return (-1) ** s * 2 ** (-14) * (f / 1024.0)
+        elif e == 31:
+            return float('inf') if f == 0 else float('nan')
+        else:
+            return (-1) ** s * 2 ** (e - 15) * (1 + f / 1024.0)
+
+    @staticmethod
+    def from_bytes_message(data: bytes) -> "MinecraftObservation":
+        offset = 0
+        # Long (8 bytes, big endian)
+        tick, = struct.unpack_from(">Q", data, offset)
+        offset += 8
+        actionStartedTick, = struct.unpack_from(">Q", data, offset)
+        offset += 8
+
+        # Int (4 bytes each)
+        x, y, z = struct.unpack_from(">iii", data, offset)
+        offset += 12
+
+        # Float (4 bytes each)
+        yaw, pitch = struct.unpack_from(">ff", data, offset)
+        offset += 8
+
+        # Boolean / byte (died, hasGroundBelow, standingOn)
+        died = bool(data[offset])
+        offset += 1
+        has_ground_below = bool(data[offset])
+        offset += 1
+        standingOn = data[offset]
+        offset += 1
+
+        # fovDistances: float16 -> float32
+        from mc_env.env import FOV_RAYS
+        fovDistances = []
+        for _ in range(FOV_RAYS):
+            half_val, = struct.unpack_from(">H", data, offset)
+            offset += 2
+            fovDistances.append(MinecraftObservation.half_to_float(half_val))
+
+        fovBlocks = list(data[offset:offset + FOV_RAYS])
+        offset += FOV_RAYS
+
+        return MinecraftObservation(
+            tick=tick,
+            actionStartedTick=actionStartedTick if actionStartedTick != 0 else None,
+            lastActions=None,
+            x=x, y=y, z=z,
+            yaw=yaw,
+            pitch=pitch,
+            died=died,
+            has_ground_below=has_ground_below,
+            standingOn=standingOn,
+            fovDistances=fovDistances,
+            fovBlocks=fovBlocks
         )

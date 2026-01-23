@@ -65,8 +65,21 @@ class WebSocketClient:
             await self._conn.send(text)
 
     async def _process_ws_message_async(self):
+        if not self._conn or self._conn.state is not State.OPEN:
+            raise RuntimeError("WebSocket connection expected open but is closed.")
         while True:
-            frame = await self._recv_json()
+            async with self._recv_lock:
+                try:
+                    message = await self._conn.recv()
+                except ConnectionClosed as exc:  # pragma: no cover - network failure path
+                    raise RuntimeError("WebSocket connection closed") from exc
+            if isinstance(message, bytes):
+                parsed_message = MinecraftObservation.from_bytes_message(message)
+                self.on_message(parsed_message)
+                continue
+            if not isinstance(message, str):
+                raise WsProtocolError("Expected text or binary message from server")
+            frame = json.loads(message)
             LOGGER.debug("Received frame: %s", frame)
             frame_type = IncomingMessageType(frame.get("type"))
 
@@ -83,13 +96,3 @@ class WebSocketClient:
                 case _:
                     LOGGER.error("Unexpected frame type %s", frame_type)
                     raise WsProtocolError("Received unexpected frame type")
-
-    async def _recv_json(self) -> Dict[str, Any]:
-        if not self._conn or self._conn.state is not State.OPEN:
-            raise RuntimeError("WebSocket connection expected open but is closed.")
-        async with self._recv_lock:
-            try:
-                raw = await self._conn.recv()
-            except ConnectionClosed as exc:  # pragma: no cover - network failure path
-                raise RuntimeError("WebSocket connection closed") from exc
-        return json.loads(raw)

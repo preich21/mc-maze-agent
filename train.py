@@ -12,10 +12,11 @@ from dataclasses import dataclass
 from typing import Callable
 
 import gymnasium as gym
+import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.logger import configure
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 from callbacks.debug_tensorboard import DebugMetricsTensorboardCallback
 from mc_env.env import MinecraftEnv
@@ -35,6 +36,14 @@ WS_URIS = [
     "ws://127.0.0.1:8083",
     "ws://127.0.0.1:8084",
     "ws://127.0.0.1:8085",
+    "ws://127.0.0.1:8086",
+    "ws://127.0.0.1:8087",
+    "ws://127.0.0.1:8088",
+    "ws://127.0.0.1:8089",
+    "ws://127.0.0.1:8090",
+    "ws://127.0.0.1:8091",
+    "ws://127.0.0.1:8092",
+    "ws://127.0.0.1:8093",
 ]
 
 @dataclass(frozen=True)
@@ -94,7 +103,7 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
         n_epochs = 6
         learning_rate = 3e-4
 
-        max_steps_per_episode = 400
+        max_steps_per_episode = 500
 
 
     elif time_preset == "long":
@@ -131,10 +140,10 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
 
 
 def select_device() -> str:
-    # if torch.backends.mps.is_available():
-    #     return "mps"
-    # if torch.cuda.is_available():
-    #     return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    if torch.cuda.is_available():
+        return "cuda"
     return "cpu"
 
 
@@ -163,8 +172,9 @@ def main() -> None:
 
     os.makedirs(LOGDIR, exist_ok=True)
     device = select_device()
+    print(f"Using device: {device}")
 
-    vec_env = DummyVecEnv([make_env(cfg, uri) for uri in WS_URIS])
+    vec_env = SubprocVecEnv([make_env(cfg, uri) for uri in WS_URIS])
     vec_env.seed(SEED)
 
     model = PPO(
