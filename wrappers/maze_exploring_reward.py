@@ -61,8 +61,8 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._steps = 0
 
         self.maze_size = 1
-        self.current_target_maze_size = 1
-        self.max_maze_size = 20
+        self.current_target_maze_size = 5
+        self.max_maze_size = 6
 
         self.success_window = 25
         self.episode_outcomes = defaultdict(
@@ -79,7 +79,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         self._update_target_size()
 
         self.maze_size = self._generate_random_maze_size()
-        self.max_steps = min(int(100 * (2 ** (self.maze_size - 1))), 2500)
+        self.max_steps = min(int(50 * (self.maze_size ** 2)), 1000)
         if self.maze_size >= 5:
             self.no_progress_penalty = 0.0
         else:
