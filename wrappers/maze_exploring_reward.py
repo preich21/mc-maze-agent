@@ -62,7 +62,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
 
         self.maze_size = 1
         self.current_target_maze_size = 5
-        self.max_maze_size = 6
+        self.max_maze_size = 5
 
         self.success_window = 25
         self.episode_outcomes = defaultdict(
