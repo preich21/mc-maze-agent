@@ -30,7 +30,7 @@ class MinecraftObservation(IncomingMessage):
         fov_blocks = list(get_or_throw(message, "fovBlocks"))
         from mc_env.env import FOV_RAYS
         if len(fov_dist) != FOV_RAYS or len(fov_blocks) != FOV_RAYS:
-            raise ValueError("fovDistances and fovBlocks must have length 2500")
+            raise ValueError("fovDistances and fovBlocks must have length " + FOV_RAYS)
 
         standing_raw = get_or_throw(message, "standingOn")
         standing = int(standing_raw)

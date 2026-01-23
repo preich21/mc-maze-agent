@@ -15,8 +15,9 @@ class ObservationVectorizer(gym.ObservationWrapper):
     """Convert MinecraftObservation into a Dict obs for MultiInputPolicy.
 
     Keys:
-    - image: (C, H, W) float32, where C = len(BlockTypes) + 1
+    - image: (C, H, W) float32, where C = len(BlockTypes) + 2
         - block one-hot: len(BlockTypes)
+        - is_solid: 1
         - distance: 1
     - state: (D,) float32
         - x, y, z normalized
@@ -30,10 +31,8 @@ class ObservationVectorizer(gym.ObservationWrapper):
     def __init__(self, env: gym.Env):
         super().__init__(env)
 
-        self._n_block = len(BlockTypes)
-
-        # Image branch: block one-hot + distance
-        img_channels = self._n_block + 1
+        # Image branch: block one-hot + is_solid + distance
+        img_channels = len(BlockTypes) + 1 + 1
         image_space = gym.spaces.Box(
             low=0.0,
             high=1.0,
@@ -42,7 +41,7 @@ class ObservationVectorizer(gym.ObservationWrapper):
         )
 
         # State branch: [x,y,z,yaw,pitch] + standing one-hot
-        state_dim = 8 + 5 * HISTORY_LENGTH + self._n_block
+        state_dim = 8 + 5 * HISTORY_LENGTH + len(BlockTypes)
         state_low = np.full(state_dim, -1.1, dtype=np.float32)  # slight margin
         state_high = np.full(state_dim, 1.1, dtype=np.float32)
         state_space = gym.spaces.Box(
@@ -67,12 +66,19 @@ class ObservationVectorizer(gym.ObservationWrapper):
         dist_grid = dist_norm.reshape(FOV_HEIGHT, FOV_WIDTH)
 
         # block one-hot: (n_block, H, W)
-        blk = np.clip(fov_blocks, 0, self._n_block - 1)
-        block_oh = np.eye(self._n_block, dtype=np.float32)[blk]  # (RAYS, n_block)
-        block_oh = block_oh.reshape(FOV_HEIGHT, FOV_WIDTH, self._n_block)
+        blk = np.clip(fov_blocks, 0, len(BlockTypes) - 1)
+        block_oh = np.eye(len(BlockTypes), dtype=np.float32)[blk]
+        block_oh = block_oh.reshape(FOV_HEIGHT, FOV_WIDTH, len(BlockTypes))
         block_oh = np.transpose(block_oh, (2, 0, 1))
 
-        image = np.concatenate([block_oh, dist_grid[None, :, :]], axis=0).astype(np.float32)
+        # is_solid channel: 1 for any non-AIR block, else 0
+        is_solid = (blk != int(BlockTypes.AIR)).astype(np.float32)
+        is_solid = is_solid.reshape(FOV_HEIGHT, FOV_WIDTH)
+
+        image = np.concatenate(
+            [block_oh, is_solid[None, :, :], dist_grid[None, :, :]],
+            axis=0,
+        ).astype(np.float32)
 
         # ----- state branch -----
         x_norm = np.clip((float(observation.x) - POS_MIN) / (POS_MAX - POS_MIN), 0.0, 1.0)
@@ -84,9 +90,9 @@ class ObservationVectorizer(gym.ObservationWrapper):
         yaw_cos = np.cos(yaw_rad)  # [-1,1]
         pitch_norm = np.clip(float(observation.pitch) / 90.0, -1.0, 1.0)
 
-        standing = np.zeros(self._n_block, dtype=np.float32)
+        standing = np.zeros(len(BlockTypes), dtype=np.float32)
         standing_idx = int(observation.standingOn)
-        if 0 <= standing_idx < self._n_block:
+        if 0 <= standing_idx < len(BlockTypes):
             standing[standing_idx] = 1.0
 
         died = float(observation.died)

@@ -89,8 +89,8 @@ def set_meta_params(argv: list[str] | None = None) -> TrainConfig:
         # Minimal meaningful learning: enough for reward curves to move.
         total_steps = 400_000
         curriculum_steps = max(1, int(total_steps * 0.5))
-        n_steps = 2_048
-        batch_size = 128
+        n_steps = 1024
+        batch_size = 256
         n_epochs = 6
         learning_rate = 3e-4
 
@@ -186,7 +186,7 @@ def main() -> None:
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=lambda progress: 0.1 + 0.1 * progress,
-        # ent_coef=0.10,
+        ent_coef=0.01,
         vf_coef=0.5,
     )
 
