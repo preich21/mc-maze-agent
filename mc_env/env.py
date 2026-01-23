@@ -9,7 +9,7 @@ from mc_env.action import MinecraftAction
 from mc_env.action_history import ActionHistory
 from mc_env.observation import MinecraftObservation
 from mc_env.observations_buffer import ObservationsBuffer
-from mc_env.reset import ResetRequest
+from mc_env.reset import ResetRequest, StartPointRotations
 from mc_env.start_points import StartPoint
 from ws.bridge import MinecraftWsBridge
 from ws.messages import HelloMessage
@@ -34,6 +34,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
     metadata = {"render_modes": []}
 
     start_points: list[StartPoint] | None = None
+    active_start_point: StartPoint | None = None
 
     def __init__(self, uri: str = 'ws://127.0.0.1:8081', curriculum_steps: int = None):
         super().__init__()
@@ -66,19 +67,21 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         self.step_idx = 0
         self.action_history.clear()
 
-        start_point = self._choose_start_point()
+        self.active_start_point = self._choose_start_point()
         t = 1.0
         if self.curriculum_steps is not None:
             t = min(1.0, float(self.total_steps) / float(max(1, self.curriculum_steps)))
-        self._randomize_pitch(start_point, t)
-        self._randomize_yaw(start_point, t)
-        request = ResetRequest(episode=self.episode, start_point=start_point, seed=seed, options=options)
+        self._randomize_pitch(t)
+        self._randomize_yaw(t)
+        start_point_rotation = self.np_random.choice(StartPointRotations)
+        request = ResetRequest(episode=self.episode, start_point=self.active_start_point, startPointRotation=start_point_rotation, seed=seed, options=options)
 
+        self.observations_buffer.clear()
         self._ws.send(request)
         obs, skipped_obs = self.observations_buffer.get_observation()
         obs.lastActions = self.action_history.get_action_history_features()
         info = {
-            "start_point": start_point,
+            "start_point": self.active_start_point,
             "debug/skipped_obs": skipped_obs
         }
         return obs, info
@@ -111,7 +114,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
 
         return start_point
 
-    def _randomize_pitch(self, start_point: StartPoint, t: float) -> None:
+    def _randomize_pitch(self, t: float) -> None:
         # Start easy: narrow pitch, then widen.
         easy_lo, easy_hi = -15.0, 15.0
         hard_lo, hard_hi = -90.0, 90.0
@@ -120,9 +123,9 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         pitch_hi = (1.0 - t) * easy_hi + t * hard_hi
 
         pitch_delta = float(self.np_random.uniform(pitch_lo, pitch_hi))
-        start_point.pitch = np.clip(start_point.pitch + pitch_delta, -90.0, 90.0)
+        self.active_start_point.pitch = np.clip(self.active_start_point.pitch + pitch_delta, -90.0, 90.0)
 
-    def _randomize_yaw(self, start_point: StartPoint, t: float) -> None:
+    def _randomize_yaw(self, t: float) -> None:
         # Start easy: narrow yaw, then widen.
         easy_lo, easy_hi = -15.0, 15.0
         hard_lo, hard_hi = -180.0, 180.0
@@ -131,7 +134,7 @@ class MinecraftEnv(gym.Env[MinecraftObservation, np.ndarray]):
         yaw_hi = (1.0 - t) * easy_hi + t * hard_hi
 
         yaw_delta = float(self.np_random.uniform(yaw_lo, yaw_hi))
-        start_point.yaw = ((start_point.yaw + yaw_delta) % 360.0) - 180.0
+        self.active_start_point.yaw = ((self.active_start_point.yaw + yaw_delta + 180) % 360.0) - 180.0
 
     def step(self, action: np.ndarray) -> Tuple[MinecraftObservation, float, bool, bool, dict]:
         self.step_idx += 1

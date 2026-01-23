@@ -52,6 +52,9 @@ class HelloMessage(IncomingMessage):
                     z=int(get_or_throw(point, "z")),
                     yaw=float(get_or_throw(point, "yaw")),
                     pitch=float(get_or_throw(point, "pitch")),
+                    goalX=int(get_or_throw(point, "goalX")),
+                    goalY=int(get_or_throw(point, "goalY")),
+                    goalZ=int(get_or_throw(point, "goalZ")),
                 )
                 for point in points
             ]

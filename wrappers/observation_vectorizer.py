@@ -7,7 +7,7 @@ from mc_env.action_history import HISTORY_LENGTH
 from mc_env.env import FOV_RAYS, BlockTypes, FOV_HEIGHT, FOV_WIDTH
 from mc_env.observation import MinecraftObservation
 
-POS_MIN, POS_MAX = -1000.0, 1000.0
+POS_MIN, POS_MAX = -50.0, 50.0
 
 LOGGER = logging.getLogger(__name__)
 

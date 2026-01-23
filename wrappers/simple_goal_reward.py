@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import Optional, cast
 
 import gymnasium as gym
 import numpy as np
@@ -21,6 +21,7 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         }
         self.goal_reward = 80.0
         self.death_penalty = -80.0
+        self.fov_empty_penalty = -0.005
 
         self.new_block_reward = 0.02
         # self.goal_reward = 40.0
@@ -34,12 +35,12 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         self.max_steps = 500
 
         self.goal_first_seen_bonus = 0.5
-        self.goal_distance_weight = 0.1
+        self.goal_seen_bonus = 0.0005
+        self.goal_distance_weight = 0.01
 
         # self.goal_not_visible_penalty = -0.001
 
         self.goal_seen: bool = False
-        self.last_goal_distance: Optional[float] = None
 
         self._steps = 0
         self._visited_blocks: set[tuple[int, int, int]] = set()
@@ -48,7 +49,6 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
         self._steps = 0
         self._visited_blocks.clear()
         self.goal_seen = False
-        self.last_goal_distance = None
 
         obs, info = self.env.reset(seed=seed, options=options)
         self._mark_visited_if_solid(obs)
@@ -76,27 +76,32 @@ class SimpleGoalRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, Mine
             return obs, reward, terminated, True, info
 
         goal_dist = SimpleGoalRewardWrapper._get_goal_visible_distance(obs)
-        goal_dist_rew = 0.0
         if goal_dist is not None:
             if not self.goal_seen:
                 reward += float(self.goal_first_seen_bonus)
                 self.goal_seen = True
-            if self.last_goal_distance is not None:
-                delta = self.last_goal_distance - goal_dist
-                goal_dist_rew = float(self.goal_distance_weight) * float(delta)
-            if self.last_goal_distance is None or (goal_dist < self.last_goal_distance):
-                self.last_goal_distance = goal_dist
-        reward += goal_dist_rew
-        info["shaping/goal_dist_rew"] = float(goal_dist_rew)
+            else:
+                reward += float(self.goal_seen_bonus)
+
+        # --- Distance to goal shaping ---
+        env = cast(MinecraftEnv, self.env)
+        dist_to_goal = math.sqrt(
+            (obs.x - env.active_start_point.goalX) ** 2 +
+            (obs.y - env.active_start_point.goalY) ** 2 +
+            (obs.z - env.active_start_point.goalZ) ** 2
+        )
+        # Penalize distance (closer = higher reward)
+        distance_shaping = -self.goal_distance_weight * dist_to_goal
+        reward += distance_shaping
+        info["shaping/distance_to_goal"] = dist_to_goal
+        info["shaping/distance_shaping"] = distance_shaping
 
         visible_blocks = len([b for b in obs.fovBlocks if b != BlockTypes.AIR])
+        fov_empty_penalty = 0
         if visible_blocks == 0:
-            # Encourage rotation when truly blind
-            if abs(parsed_action.yawDelta) > 0.1:  # Actually turning
-                fov_empty_bonus = 0.015  # Medium strength
-            else:
-                fov_empty_bonus = -0.005  # "STOP standing still blind!"
-        info["shaping/fov_empty_bonus"] = float(goal_dist_rew)
+            fov_empty_penalty = self.fov_empty_penalty  # "STOP standing still blind!"
+        info["shaping/fov_empty_penalty"] = float(fov_empty_penalty)
+        reward += fov_empty_penalty
 
         if self._mark_visited_if_solid(obs):
             reward += float(self.new_block_reward)

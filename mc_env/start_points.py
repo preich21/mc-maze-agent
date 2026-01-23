@@ -11,6 +11,9 @@ class StartPoint:
     z: int
     yaw: float
     pitch: float
+    goalX: int
+    goalY: int
+    goalZ: int
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -21,4 +24,7 @@ class StartPoint:
             "z": self.z,
             "yaw": self.yaw,
             "pitch": self.pitch,
+            "goalX": self.goalX,
+            "goalY": self.goalY,
+            "goalZ": self.goalZ,
         }

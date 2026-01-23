@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
 
-from mc_env.action import YAW_DELTA_MAX_DEG, PITCH_DELTA_MAX_DEG
+from mc_env.action import MinecraftAction
 from mc_env.observation import MinecraftObservation
 from mc_env.env import BlockTypes
 
@@ -34,6 +34,10 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
         self._pitch_delta_max = 0.0
         self._yaw_delta_avg = 0.0
         self._yaw_delta_max = 0.0
+        self.forward_count = 0
+        self.backward_count = 0
+        self.left_count = 0
+        self.right_count = 0
 
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
@@ -52,24 +56,38 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
 
     def step(self, action: np.ndarray):
         obs, reward, terminated, truncated, info = self.env.step(action)
+        info = dict(info)
 
         self._global_steps += 1
         self._episode_steps += 1
         self._episode_return += float(reward)
 
-        yaw_delta = abs(float(action[3])) * YAW_DELTA_MAX_DEG
-        pitch_delta = abs(float(action[4])) * PITCH_DELTA_MAX_DEG
-        self._yaw_delta_avg += yaw_delta
-        self._pitch_delta_avg += pitch_delta
-        if yaw_delta > self._yaw_delta_max:
-            self._yaw_delta_max = yaw_delta
-        if pitch_delta > self._pitch_delta_max:
-            self._pitch_delta_max = pitch_delta
+        parsed_action = MinecraftAction.from_vector(action)
+
+        self._yaw_delta_avg += parsed_action.yawDelta
+        self._pitch_delta_avg += parsed_action.pitchDelta
+        if parsed_action.yawDelta > self._yaw_delta_max:
+            self._yaw_delta_max = parsed_action.yawDelta
+        if parsed_action.pitchDelta > self._pitch_delta_max:
+            self._pitch_delta_max = parsed_action.pitchDelta
 
         min_goal_dist = self._get_min_visible_goal_distance(obs)
         if min_goal_dist is not None:
             self._goal_seen_steps += 1
             self._last_min_goal_dist = min_goal_dist
+
+        if parsed_action.moveForward:
+            self.forward_count += 1
+        if parsed_action.moveBackward:
+            self.backward_count += 1
+        if parsed_action.moveRight:
+            self.right_count += 1
+        if parsed_action.moveLeft:
+            self.left_count += 1
+        info["debug/forward"] = float(self.forward_count / self._global_steps)
+        info["debug/backward"] = float(self.backward_count / self._global_steps)
+        info["debug/left"] = float(self.left_count / self._global_steps)
+        info["debug/right"] = float(self.right_count / self._global_steps)
 
         done = bool(terminated) or bool(truncated)
         if done:
@@ -86,7 +104,6 @@ class DebugMinecraftObsWrapper(gym.Wrapper[MinecraftObservation, int, MinecraftO
             death_rate = self._deaths / max(1, self._episodes)
 
             # Attach episode metrics to info so callbacks can log them to TensorBoard
-            info = dict(info)
             info["debug/ep_len"] = int(self._episode_steps)
             info["debug/ep_return"] = float(self._episode_return)
             info["debug/goal_seen_steps"] = int(self._goal_seen_steps)

@@ -29,13 +29,13 @@ URI = "ws://127.0.0.1:8081"
 MAX_STEPS = 500
 
 MODEL_BASE_PATH = "models/"
-N_EPISODES = 20
+N_EPISODES = 40
 DETERMINISTIC = True
 
 ARG_PARSER = argparse.ArgumentParser(description="Minecraft Agent: Choose your environment and model.")
 ARG_PARSER.add_argument(
     "--model",
-    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"]
+    choices=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"]
 )
 ARG_PARSER.add_argument(
     "--env",
@@ -116,6 +116,8 @@ def load_model():
         return PPO.load(MODEL_BASE_PATH + "23_anti_stutter_long/model.zip")
     elif model == "24":
         return PPO.load(MODEL_BASE_PATH + "24_parallel_training/model.zip")
+    elif model == "25":
+        return PPO.load(MODEL_BASE_PATH + "25_fix_reset/model.zip")
     else:
         raise ValueError("Model must be specified with --model")
 
