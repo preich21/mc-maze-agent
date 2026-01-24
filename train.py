@@ -36,7 +36,7 @@ URIS = [
 ]
 
 LOGDIR = "runs/ppo_minecraft"
-TOTAL_STEPS = 500_000
+TOTAL_STEPS = 1_000_000
 N_STEPS = 2048
 BATCH_SIZE = 64
 STEP_TICKS = 2
