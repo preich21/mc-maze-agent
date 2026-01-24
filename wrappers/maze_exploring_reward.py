@@ -109,6 +109,7 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
             self.tau = 10.0
 
         print(f"Starting episode {self._episode} with mazeSize={new_options['mazeSize']}")
+        # self._print_bfs_distances(obs.maze) # Only necessary for debugging
 
         # Mark start position as visited (if we're standing on a solid block)
         self._mark_visited_if_solid(obs)
@@ -386,3 +387,36 @@ class MazeExploringRewardWrapper(gym.Wrapper[MinecraftObservation, np.ndarray, M
         elif rate < 0.2 and self.current_target_maze_size > 1:
             self.current_target_maze_size -= 1
             print(f"↓ Decreasing target size to {self.current_target_maze_size}")
+
+    def _print_bfs_distances(self, maze: List[List[bool]]):
+        """Print the BFS distance field in a human-readable format."""
+        if not self.bfs_distances:
+            print("No BFS distances calculated yet.")
+            return
+
+        rows = len(self.bfs_distances)
+        cols = len(self.bfs_distances[0]) if rows else 0
+
+        # ANSI color codes
+        GREEN = '\033[92m'  # Light green
+        RESET = '\033[0m'   # Reset to default
+
+        print("\n=== BFS Distance Field ===")
+        print(f"Maze size: {self.maze_size}x{self.maze_size}")
+        print("Legend: ## = wall, XX = unreachable, nn = distance to goal")
+        print()
+
+        for r in range(rows):
+            row_str = ""
+            for c in range(cols):
+                if maze[r][c]:  # Wall
+                    row_str += "## "
+                elif self.bfs_distances[r][c] is None:  # Unreachable
+                    row_str += "XX "
+                else:  # Show distance
+                    dist = self.bfs_distances[r][c]
+                    row_str += f"{GREEN}{dist:2d}{RESET} "
+            print(row_str)
+        print("=" * (cols * 3))
+        print()
+
